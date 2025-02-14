@@ -15,7 +15,7 @@ jobs:
       matrix:
         distro: ['ubuntu:latest']
         backend: ["SERIAL", "OPENMP"]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     container:
       image: ghcr.io/ecp-copa/ci-containers/${{ matrix.distro }}
     steps:
