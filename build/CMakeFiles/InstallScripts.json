@@ -1,0 +1,8 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/jastewart/research-Bridges/HACCabana/build/cmake_install.cmake",
+		"/home/jastewart/research-Bridges/HACCabana/build/src/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
