@@ -10,6 +10,7 @@
 namespace HACCabana
 {
 
+  template <class MemorySpace, class ExecutionSpace>
   class Particles
   {
     public:
@@ -20,13 +21,16 @@ namespace HACCabana
         Velocity = 2,
         BinIndex = 3
       };
-
+      using memory_space = MemorySpace;
+      using execution_space = ExecutionSpace;
       using data_types = Cabana::MemberTypes<int64_t, float[3], float[3], int>;
-      using aosoa_host_type = Cabana::AoSoA<data_types, Kokkos::Device<Kokkos::DefaultHostExecutionSpace, Kokkos::HostSpace>>;
+      using aosoa_type = Cabana::AoSoA<data_types, memory_space, VECTOR_LENGTH>;
+      using aosoa_host_type = Cabana::AoSoA<data_types, Kokkos::HostSpace, VECTOR_LENGTH>;
 
       size_t num_p = 0;
       size_t begin = 0;
       size_t end = 0;
+      aosoa_type aosoa;
       aosoa_host_type aosoa_host;
 
       Particles();

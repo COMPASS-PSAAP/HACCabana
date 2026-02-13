@@ -9,33 +9,31 @@
 #include "TimeStepper.h"
 #include "Particles.h"
 
-// This might need to be changed for AMD and Intel GPUs. Nvidia warp size is 32. 
-#define VECTOR_LENGTH 64
-
 namespace HACCabana 
 {
+  template <class ParticleType>
   class ParticleActions
   {
-  private:
-    Particles *P;
-
   public:
-    using device_exec = Kokkos::DefaultExecutionSpace::execution_space;
-    using device_mem = Kokkos::DefaultExecutionSpace::memory_space;
-    using device_type = Kokkos::Device<device_exec, device_mem>;
-    //using device_scratch = Kokkos::ScratchMemorySpace<device_exec>;
+    using memory_space = typename ParticleType::memory_space;
+    using execution_space = typename ParticleType::execution_space;
+    using data_types = typename ParticleType::data_types;
+    using aosoa_type = typename ParticleType::aosoa_type;
+    using aosoa_host_type = typename ParticleType::aosoa_host_type;
 
     ParticleActions();
-    ParticleActions(Particles *P_);
+    ParticleActions(ParticleType *P_);
     ~ParticleActions();
-    void setParticles(Particles *P_);
+    void setParticles(ParticleType *P_);
     void subCycle(TimeStepper &ts, const int nsub, const float gpscal, const float rmax2, const float rsm2,\
-        const float cm_size, const float min_pos, const float max_pos);
-    void updatePos(Cabana::AoSoA<HACCabana::Particles::data_types, device_type, VECTOR_LENGTH> aosoa_device,\
-        float prefactor);
-    void updateVel(Cabana::AoSoA<HACCabana::Particles::data_types, device_type, VECTOR_LENGTH> aosoa_device,\
-        Cabana::LinkedCellList<device_type> cell_list,\
-        const float c, const float rmax2, const float rsm2);
+                  const float cm_size, const float min_pos, const float max_pos);
+    void updatePos(aosoa_type aosoa_device, float prefactor);
+    void updateVel(aosoa_type aosoa_device, Cabana::LinkedCellList<memory_space> cell_list,
+                   const float c, const float rmax2, const float rsm2);
+  
+
+  private:
+    ParticleType *P;
   };
 }
 #endif

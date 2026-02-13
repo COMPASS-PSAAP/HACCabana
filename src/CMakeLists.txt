@@ -9,6 +9,7 @@ set(HACCABANA_HEADERS
   ParticleActions.h
   Particles.h
   TimeStepper.h
+  Solver.h
 )
 
 set(HACCABANA_SOURCES
@@ -16,6 +17,7 @@ set(HACCABANA_SOURCES
   ParticleActions.cxx
   Particles.cxx
   TimeStepper.cxx
+  Solver.cxx
 )
 
 add_library(HACCabana ${HACCABANA_SOURCES})

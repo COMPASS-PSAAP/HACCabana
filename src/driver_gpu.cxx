@@ -36,14 +36,16 @@ int main( int argc, char* argv[] )
   int synthetic_data_flag = 0;  // generate synthetic data
   int timestep_flag = 0;        // timstep to advance to (required)
   int config_flag = 0;          // configuration file (optional)
+  int driver_flag = 0;
   char *input_filename = NULL;
   char *verification_filename = NULL;
   char *t_value = NULL;
   char *configuration_filename = NULL;
+  std::string driver;
   int c;
   opterr = 0;
 
-  while ((c = getopt (argc, argv, "i:v:st:c:")) != -1)
+  while ((c = getopt (argc, argv, "i:v:st:c:x:")) != -1)
     switch (c)
     {
       case 'i':
@@ -65,6 +67,17 @@ int main( int argc, char* argv[] )
         config_flag = 1;
         configuration_filename = optarg;
         break;
+      case 'x':
+        driver = strdup( optarg );
+        if ( driver == "serial"  ||
+             driver == "openmp"  ||
+             driver == "threads" ||
+             driver == "cuda"    ||
+             driver == "hip" ) )
+        {
+            driver_flag = 1;
+        }
+        break;
       case '?':
         if (optopt == 'i' || optopt == 'v' || optopt == 't' || optopt == 'c' )
           fprintf (stderr, "Option -%c requires an argument.\n", optopt);
@@ -73,6 +86,12 @@ int main( int argc, char* argv[] )
       default:
         abort();
     }
+
+  if (!driver_flag)
+  {
+    cout << "Invalid driver! (Supported options: serial, openmp, threads, cuda, hip)" << endl;
+    return 1;
+  }
 
   if (!(input_flag || synthetic_data_flag))
   {

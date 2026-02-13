@@ -5,17 +5,20 @@
 namespace HACCabana
 {
 
-Particles::Particles() 
+template <class MemorySpace, class ExecutionSpace>
+Particles<MemorySpace, ExecutionSpace>::Particles() 
 {
   ;
 }
 
-Particles::~Particles() 
+template <class MemorySpace, class ExecutionSpace>
+Particles<MemorySpace, ExecutionSpace>::~Particles() 
 {
   ;
 }
 
-void Particles::convert_phys2grid(int ng, float rL, float a)
+template <class MemorySpace, class ExecutionSpace>
+void Particles<MemorySpace, ExecutionSpace>::convert_phys2grid(int ng, float rL, float a)
 {
   auto velocity = Cabana::slice<Velocity>(aosoa_host, "velocity");
 
@@ -30,8 +33,8 @@ void Particles::convert_phys2grid(int ng, float rL, float a)
   }
 }
 
-// 
-void Particles::generateData(const int np, const float rl, const float ol, const float mean_vel)
+template <class MemorySpace, class ExecutionSpace>
+void Particles<MemorySpace, ExecutionSpace>::generateData(const int np, const float rl, const float ol, const float mean_vel)
 {
   num_p = np*np*np;
   aosoa_host = aosoa_host_type("aosoa_host", num_p);
@@ -85,7 +88,8 @@ void Particles::generateData(const int np, const float rl, const float ol, const
       "] max["<< max_pos[0] << "," << max_pos[1] << "," << max_pos[2] << "]" << std::endl;
 }
 
-void Particles::readRawData(std::string file_name) 
+template <class MemorySpace, class ExecutionSpace>
+void Particles<MemorySpace, ExecutionSpace>::readRawData(std::string file_name) 
 {
   std::ifstream infile(file_name, std::ifstream::binary);
 
@@ -144,7 +148,8 @@ void Particles::readRawData(std::string file_name)
       "max["<< max_pos[0] << "," << max_pos[1] << "," << max_pos[2] << "]" << std::endl;
 }
 
-void Particles::reorder(const float min_pos, const float max_pos)
+template <class MemorySpace, class ExecutionSpace>
+void Particles<MemorySpace, ExecutionSpace>::reorder(const float min_pos, const float max_pos)
 {
   auto id = Cabana::slice<ParticleID>(aosoa_host, "id");
   auto position = Cabana::slice<Position>(aosoa_host, "position");
