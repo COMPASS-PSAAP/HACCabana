@@ -7,13 +7,20 @@
 
 #include <Cabana_Core.hpp>
 
+#include "Solver.h"
 #include "Definitions.h"
-#include "Parameters.h"
-#include "TimeStepper.h"
-#include "Particles.h"
-#include "ParticleActions.h"
 
 using namespace std;
+
+struct ParticleData
+{
+  using data_types = Cabana::MemberTypes<int64_t, float[3], float[3], int>;
+
+  struct field
+  {
+    enum : int { ParticleID = 0, Position = 1, Velocity = 2, BinIndex = 3 };
+  };
+};
 
 inline bool floatCompare(float f1, float f2) {
   static constexpr auto epsilon = MAX_ERR;
@@ -73,7 +80,7 @@ int main( int argc, char* argv[] )
              driver == "openmp"  ||
              driver == "threads" ||
              driver == "cuda"    ||
-             driver == "hip" ) )
+             driver == "hip" )
         {
             driver_flag = 1;
         }
@@ -115,63 +122,69 @@ int main( int argc, char* argv[] )
     step0 = atoi(t_value);
   }
 
+  auto solver = HACCabana::createSolver<ParticleData>(driver, step0);
+  solver->setup(config_flag, configuration_filename);
+  solver->advance();
+  solver->setupParticles(input_flag, input_filename);
+  solver->subCycle();
+
   // simulation and cosmology params
   // loads default
-  HACCabana::Parameters Params;
+  // HACCabana::Parameters Params;
 
-  if (config_flag)
-  {
-    Params.load_from_file(configuration_filename);
-  }
+  // if (config_flag)
+  // {
+  //   Params.load_from_file(configuration_filename);
+  // }
 
-  TimeStepper ts(
-     Params.alpha,
-		 Params.a_in,
-		 Params.a_fin,
-		 Params.nsteps,
-		 Params.omega_matter,
-		 Params.omega_cdm,
-		 Params.omega_baryon,
-		 Params.omega_cb,
-		 Params.omega_nu,
-		 Params.omega_radiation,
-		 Params.f_nu_massless,
-		 Params.f_nu_massive,
-		 Params.w_de,
-     Params.wa_de);
+  // TimeStepper ts(
+  //    Params.alpha,
+	// 	 Params.a_in,
+	// 	 Params.a_fin,
+	// 	 Params.nsteps,
+	// 	 Params.omega_matter,
+	// 	 Params.omega_cdm,
+	// 	 Params.omega_baryon,
+	// 	 Params.omega_cb,
+	// 	 Params.omega_nu,
+	// 	 Params.omega_radiation,
+	// 	 Params.f_nu_massless,
+	// 	 Params.f_nu_massive,
+	// 	 Params.w_de,
+  //    Params.wa_de);
   
-  cout << "Advancing timestepper to step " << step0 << endl;
-  // get timestepper up to speed
-  for (int step = 0; step < step0; step++)
-    ts.advanceFullStep();
+  // cout << "Advancing timestepper to step " << step0 << endl;
+  // // get timestepper up to speed
+  // for (int step = 0; step < step0; step++)
+  //   ts.advanceFullStep();
 
-  // we're starting to subcycle after a PM kick
-  ts.advanceHalfStep();
+  // // we're starting to subcycle after a PM kick
+  // ts.advanceHalfStep();
 
-  // Setup particle data 
-  HACCabana::Particles P;
+  // // Setup particle data 
+  // HACCabana::Particles P;
 
-  const float min_alive_pos = Params.oL;
-  const float max_alive_pos = Params.rL+Params.oL;
+  // const float min_alive_pos = Params.oL;
+  // const float max_alive_pos = Params.rL+Params.oL;
 
-  if (input_flag)
-  {
-    cout << "Reading file: " << input_filename << endl;
-    P.readRawData(input_filename);
-  }
-  else if (synthetic_data_flag)
-  {
-    cout << "Generating synthetic data in range [" << min_alive_pos << "," << max_alive_pos << "] " 
-         << "rL=" << Params.rL << " oL=" << Params.oL << endl;
-    P.generateData(Params.np, Params.rL, Params.oL, MEAN_VEL);
-    P.convert_phys2grid(Params.ng, Params.rL, ts.aa());
-  }
+  // if (input_flag)
+  // {
+  //   cout << "Reading file: " << input_filename << endl;
+  //   P.readRawData(input_filename);
+  // }
+  // else if (synthetic_data_flag)
+  // {
+  //   cout << "Generating synthetic data in range [" << min_alive_pos << "," << max_alive_pos << "] " 
+  //        << "rL=" << Params.rL << " oL=" << Params.oL << endl;
+  //   P.generateData(Params.np, Params.rL, Params.oL, MEAN_VEL);
+  //   P.convert_phys2grid(Params.ng, Params.rL, ts.aa());
+  // }
 
-  P.reorder(min_alive_pos, max_alive_pos); // TODO:assumes local extent equals the global extent
-  cout << "\t" << P.end-P.begin << " particles in [" << min_alive_pos << "," << max_alive_pos << "]" << endl;
+  // P.reorder(min_alive_pos, max_alive_pos); // TODO:assumes local extent equals the global extent
+  // cout << "\t" << P.end-P.begin << " particles in [" << min_alive_pos << "," << max_alive_pos << "]" << endl;
 
-  HACCabana::ParticleActions PA(&P);
-  PA.subCycle(ts, Params.nsub, Params.gpscal, Params.rmax*Params.rmax, Params.rsm*Params.rsm, Params.cm_size, Params.oL, Params.rL+Params.oL);
+  // HACCabana::ParticleActions PA(&P);
+  // PA.subCycle(ts, Params.nsub, Params.gpscal, Params.rmax*Params.rmax, Params.rsm*Params.rsm, Params.cm_size, Params.oL, Params.rL+Params.oL);
 
   // verify against the answer from the simulation
   // --------------------------------------------------------------------------------------------------------------------------
@@ -179,32 +192,42 @@ int main( int argc, char* argv[] )
   if (verification_flag)
   {
     cout << "\nVerifying result." << endl;
-    auto particle_id = Cabana::slice<HACCabana::Particles::Fields::ParticleID>( P.aosoa_host, "particle_id" );
+    auto particles_h = solver->particles();
+    auto particle_id = Cabana::slice<ParticleData::field::ParticleID>( particles_h, "particle_id" );
     auto sort_data = Cabana::sortByKey( particle_id );
 
-    HACCabana::Particles P_ans;
-    cout << "Reading file: " << verification_filename << endl;
-    P_ans.readRawData(verification_filename);
+    // Create solver and load verification particles
+    auto solver_ans = HACCabana::createSolver<ParticleData>("serial", step0);
+    solver_ans->setupParticles(1, verification_filename);
+    // HACCabana::Particles<Kokkos::HostSpace, Kokkos::DefaultHostExecutionSpace> P_ans;
+    // cout << "Reading file: " << verification_filename << endl;
+    // P_ans.readRawData(verification_filename);
 
-    Cabana::permute( sort_data, P.aosoa_host );
-    auto particle_id_ans = Cabana::slice<HACCabana::Particles::Fields::ParticleID>( P_ans.aosoa_host, "particle_id_ans" );
+    Cabana::permute( sort_data, particles_h );
+    auto particles_ans_h = solver_ans->particles();
+    auto particle_id_ans = Cabana::slice<ParticleData::field::ParticleID>( particles_ans_h, "particle_id_ans" );
     auto sort_data_ans = Cabana::sortByKey( particle_id_ans );
-    Cabana::permute( sort_data_ans, P_ans.aosoa_host );
+    Cabana::permute( sort_data_ans, particles_ans_h );
 
-    auto position = Cabana::slice<HACCabana::Particles::Fields::Position>( P.aosoa_host, "position" );
-    auto position_ans = Cabana::slice<HACCabana::Particles::Fields::Position>( P_ans.aosoa_host, "position_ans" );
+    auto position = Cabana::slice<ParticleData::field::Position>( particles_h, "position" );
+    auto position_ans = Cabana::slice<ParticleData::field::Position>( particles_ans_h, "position_ans" );
 
-    cout << "Checking " << P.num_p << " particles against " << P_ans.num_p << " answer particles." << endl;
-    assert(P.num_p == P_ans.num_p);
+    int num_p = solver->num_p();
+    int num_p_ans = solver_ans->num_p();
+    cout << "Checking " << num_p << " particles against " << num_p_ans << " answer particles." << endl;
+    assert(num_p == num_p_ans);
 
     // don't check particles in boundary cells
-    const float dx_boundary = Params.cm_size;
+    auto parameters = solver->parameters();
+    const float dx_boundary = parameters->cm_size;
+    const float min_alive_pos = parameters->oL;
+    const float max_alive_pos = parameters->rL+parameters->oL;
 
-    cout << "\tExcluding boundary cells of Linked Cell List.\n\tChceking all particles within [" << Params.oL+dx_boundary << "," << Params.rL+Params.oL-dx_boundary << ")" << endl;
+    cout << "\tExcluding boundary cells of Linked Cell List.\n\tChecking all particles within [" << parameters->oL+dx_boundary << "," << parameters->rL+parameters->oL-dx_boundary << ")" << endl;
 
     int count = 0;
     int err_n = 0;
-    for (int i=0; i<P_ans.num_p; ++i)
+    for (int i=0; i<num_p_ans; ++i)
     {
       assert(particle_id(i) == particle_id_ans(i));
       bool is_inside = false;

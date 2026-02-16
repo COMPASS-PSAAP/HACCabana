@@ -4,9 +4,12 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include <Kokkos_Core.hpp>
 
+#include "Definitions.h"
 #include "Parameters.h"
 #include "Particles.h"
 #include "ParticleActions.h"
@@ -15,87 +18,103 @@
 namespace HACCabana
 {
 //--------------------------------------
-// Base interface (non-templated)
+// Base interface
 //--------------------------------------
+template <class DataTypes>
 class SolverBase
 {
   public:
+    using member_types = typename DataTypes::data_types;
+    using aosoa_host_type = Cabana::AoSoA<member_types, Kokkos::HostSpace, VECTOR_LENGTH>;
+
     virtual ~SolverBase() = default;
 
-    virtual void setup() = 0;
-    virtual void step()  = 0;
-    virtual void solve( double t_final, int write_freq ) = 0;
+    virtual void setup(const int config_flag, const std::string& configuration_file) = 0;
+    virtual void advance() = 0;
+    virtual void setupParticles(int config_flag, const std::string& input_filename)  = 0;
+    virtual void subCycle() = 0;
+    virtual int num_p() = 0;
+
+    virtual std::shared_ptr<Parameters> parameters() = 0;
+    virtual aosoa_host_type particles() = 0;
 };
 
 //--------------------------------------
 // Templated solver
 //--------------------------------------
-template <class MemorySpace, class ExecutionSpace>
-class Solver : public SolverBase
+template <class MemorySpace, class ExecutionSpace, class DataTypes>
+class Solver : public SolverBase<DataTypes>
 {
   public:
     using execution_space = ExecutionSpace;
-    using memory_space    = MemorySpace;
+    using memory_space = MemorySpace;
+    using data_types = DataTypes;
+    using typename SolverBase<DataTypes>::aosoa_host_type; 
 
     using parameters_type = Parameters;
-    using particles_type = Particles<memory_space, execution_space>;
-    using actions_type   = ParticleActions<particles_type>;
+    using particles_type = Particles<memory_space, execution_space, data_types>;
+    using actions_type  = ParticleActions<particles_type>;
     using timestepper_type = TimeStepper;
 
-    Solver( int config_flag );
+    Solver( const int step0 );
 
-    void setup() override
-    {
-        // Example: initialize particle data, etc.
-        // _particles.generateData(...);
-        // _particles.convert_phys2grid(...);
-    }
+    void setup(const int config_flag, const std::string& configuration_filename) override;
 
-    void step() override
-    {
-        // Example: call your particle actions here.
-        // _actions.subCycle(...);
-    }
+    /**
+     * Get timestepper up to speed and 
+     * start to subcycle after a PM kick
+     */
+    void advance() override;
 
-    void solve( double t_final, int write_freq ) override
-    {
-        // Example loop skeleton (replace with your actual time stepper logic)
-        double t = 0.0;
-        int step_count = 0;
+    /**
+     * Initialize particle data,
+     */
+    void setupParticles(const int input_flag, const std::string& input_filename) override;
 
-        while ( t < t_final )
-        {
-            step();
-            ++step_count;
+    void subCycle() override;
 
-            // if (write_freq > 0 && step_count % write_freq == 0) writeOutput(...);
+    int num_p() override {return _particles->num_p;}
 
-            // advance time (placeholder)
-            t += 1.0;
-        }
-    }
+    // void solve( double t_final, int write_freq ) override;
+    // {
+    //     // Example loop skeleton (replace with your actual time stepper logic)
+    //     double t = 0.0;
+    //     int step_count = 0;
 
-    particles_type& particles() { return _particles; }
-    actions_type& actions() { return _actions; }
+    //     while ( t < t_final )
+    //     {
+    //         step();
+    //         ++step_count;
+
+    //         // if (write_freq > 0 && step_count % write_freq == 0) writeOutput(...);
+
+    //         // advance time (placeholder)
+    //         t += 1.0;
+    //     }
+    // }
+
+    std::shared_ptr<parameters_type> parameters() override {return _parameters;}
+    aosoa_host_type particles() override {return _particles->aosoa_host;}
 
   private:
-    parameters_type _parameters;
-    particles_type _particles;
-    actions_type   _actions;
-    timestepper_type _timestepper;
+    const int _step0;
+    std::shared_ptr<parameters_type> _parameters;
+    std::unique_ptr<particles_type> _particles;
+    std::unique_ptr<actions_type> _actions;
+    std::unique_ptr<timestepper_type> _timestepper;
 };
 
-std::shared_ptr<SolverBase>
-createSolver( const std::string& device )
+template<class DataTypes>
+std::shared_ptr<SolverBase<DataTypes>>
+createSolver( const std::string& device, const int step0 )
 {
-    // NOTE: your earlier snippet had "seral" typo; use "serial".
     if ( device == "serial" )
     {
 #if defined( KOKKOS_ENABLE_SERIAL )
-        using ExecSpace = Kokkos::Serial;
-        using MemSpace  = Kokkos::HostSpace;
-        return std::make_shared<Solver<ExecSpace, MemSpace, ModelOrder>>(
-            std::forward<CtorArgs>(ctor_args)... );
+        using ExecutionSpace = Kokkos::Serial;
+        using MemorySpace = Kokkos::HostSpace;
+        return std::make_shared<Solver<MemorySpace, ExecutionSpace, DataTypes>>(
+            step0 );
 #else
         throw std::runtime_error( "Serial backend not enabled in Kokkos" );
 #endif
@@ -103,10 +122,10 @@ createSolver( const std::string& device )
     else if ( device == "threads" )
     {
 #if defined( KOKKOS_ENABLE_THREADS )
-        using ExecSpace = Kokkos::Threads;
-        using MemSpace  = Kokkos::HostSpace;
-        return std::make_shared<Solver<ExecSpace, MemSpace, ModelOrder>>(
-            std::forward<CtorArgs>(ctor_args)... );
+        using ExecutionSpace = Kokkos::Threads;
+        using MemorySpace = Kokkos::HostSpace;
+        return std::make_shared<Solver<MemorySpace, ExecutionSpace, DataTypes>>(
+            step0 );
 #else
         throw std::runtime_error( "Threads backend not enabled in Kokkos" );
 #endif
@@ -114,10 +133,10 @@ createSolver( const std::string& device )
     else if ( device == "openmp" )
     {
 #if defined( KOKKOS_ENABLE_OPENMP )
-        using ExecSpace = Kokkos::OpenMP;
-        using MemSpace  = Kokkos::HostSpace;
-        return std::make_shared<Solver<ExecSpace, MemSpace, ModelOrder>>(
-            std::forward<CtorArgs>(ctor_args)... );
+        using ExecutionSpace = Kokkos::OpenMP;
+        using MemorySpace = Kokkos::HostSpace;
+        return std::make_shared<Solver<MemorySpace, ExecutionSpace, DataTypes>>(
+            step0 );
 #else
         throw std::runtime_error( "OpenMP backend not enabled in Kokkos" );
 #endif
@@ -125,10 +144,10 @@ createSolver( const std::string& device )
     else if ( device == "cuda" )
     {
 #if defined( KOKKOS_ENABLE_CUDA )
-        using ExecSpace = Kokkos::Cuda;
-        using MemSpace  = Kokkos::CudaSpace; // or Kokkos::CudaUVMSpace
-        return std::make_shared<Solver<ExecSpace, MemSpace, ModelOrder>>(
-            std::forward<CtorArgs>(ctor_args)... );
+        using ExecutionSpace = Kokkos::Cuda;
+        using MemorySpace = Kokkos::CudaSpace;
+        return std::make_shared<Solver<MemorySpace, ExecutionSpace, DataTypes>>(
+            step0 );
 #else
         throw std::runtime_error( "CUDA backend not enabled in Kokkos" );
 #endif
@@ -136,10 +155,10 @@ createSolver( const std::string& device )
     else if ( device == "hip" )
     {
 #if defined( KOKKOS_ENABLE_HIP )
-        using ExecSpace = Kokkos::HIP;
-        using MemSpace  = Kokkos::HIPSpace; // or Kokkos::HIPManagedSpace
-        return std::make_shared<Solver<ExecSpace, MemSpace, ModelOrder>>(
-            std::forward<CtorArgs>(ctor_args)... );
+        using ExecutionSpace = Kokkos::HIP;
+        using MemorySpace = Kokkos::HIPSpace;
+        return std::make_shared<Solver<MemorySpace, ExecutionSpace, DataTypes>>(
+            step0 );
 #else
         throw std::runtime_error( "HIP backend not enabled in Kokkos" );
 #endif

@@ -5,22 +5,22 @@
 namespace HACCabana
 {
 
-template <class MemorySpace, class ExecutionSpace>
-Particles<MemorySpace, ExecutionSpace>::Particles() 
+template <class MemorySpace, class ExecutionSpace, class DataTypes>
+Particles<MemorySpace, ExecutionSpace, DataTypes>::Particles() 
 {
   ;
 }
 
-template <class MemorySpace, class ExecutionSpace>
-Particles<MemorySpace, ExecutionSpace>::~Particles() 
+template <class MemorySpace, class ExecutionSpace, class DataTypes>
+Particles<MemorySpace, ExecutionSpace, DataTypes>::~Particles() 
 {
   ;
 }
 
-template <class MemorySpace, class ExecutionSpace>
-void Particles<MemorySpace, ExecutionSpace>::convert_phys2grid(int ng, float rL, float a)
+template <class MemorySpace, class ExecutionSpace, class DataTypes>
+void Particles<MemorySpace, ExecutionSpace, DataTypes>::convert_phys2grid(int ng, float rL, float a)
 {
-  auto velocity = Cabana::slice<Velocity>(aosoa_host, "velocity");
+  auto velocity = Cabana::slice<field::Velocity>(aosoa_host, "velocity");
 
   const float phys2grid_pos = ng/rL;
   const float phys2grid_vel = phys2grid_pos/100.0;
@@ -33,14 +33,14 @@ void Particles<MemorySpace, ExecutionSpace>::convert_phys2grid(int ng, float rL,
   }
 }
 
-template <class MemorySpace, class ExecutionSpace>
-void Particles<MemorySpace, ExecutionSpace>::generateData(const int np, const float rl, const float ol, const float mean_vel)
+template <class MemorySpace, class ExecutionSpace, class DataTypes>
+void Particles<MemorySpace, ExecutionSpace, DataTypes>::generateData(const int np, const float rl, const float ol, const float mean_vel)
 {
   num_p = np*np*np;
   aosoa_host = aosoa_host_type("aosoa_host", num_p);
 
-  auto id = Cabana::slice<ParticleID>(aosoa_host, "id");
-  auto position = Cabana::slice<Position>(aosoa_host, "position");
+  auto id = Cabana::slice<field::ParticleID>(aosoa_host, "id");
+  auto position = Cabana::slice<field::Position>(aosoa_host, "position");
 
   const float delta = rl/np;  // inter-particle spacing
 
@@ -71,7 +71,7 @@ void Particles<MemorySpace, ExecutionSpace>::generateData(const int np, const fl
   const float vel_1d = mean_vel/sqrt(3.0);
 
   std::normal_distribution<float> d2{0.0, 1.0};
-  auto velocity = Cabana::slice<Velocity>(aosoa_host, "velocity");
+  auto velocity = Cabana::slice<field::Velocity>(aosoa_host, "velocity");
 
   for (int i=0; i<num_p; ++i)
   {
@@ -88,8 +88,8 @@ void Particles<MemorySpace, ExecutionSpace>::generateData(const int np, const fl
       "] max["<< max_pos[0] << "," << max_pos[1] << "," << max_pos[2] << "]" << std::endl;
 }
 
-template <class MemorySpace, class ExecutionSpace>
-void Particles<MemorySpace, ExecutionSpace>::readRawData(std::string file_name) 
+template <class MemorySpace, class ExecutionSpace, class DataTypes>
+void Particles<MemorySpace, ExecutionSpace, DataTypes>::readRawData(std::string file_name) 
 {
   std::ifstream infile(file_name, std::ifstream::binary);
 
@@ -101,9 +101,9 @@ void Particles<MemorySpace, ExecutionSpace>::readRawData(std::string file_name)
   if (num_p==0)
     return;
 
-  auto id = Cabana::slice<ParticleID>(aosoa_host, "id");
-  auto position = Cabana::slice<Position>(aosoa_host, "position");
-  auto velocity = Cabana::slice<Velocity>(aosoa_host, "velocity");
+  auto id = Cabana::slice<field::ParticleID>(aosoa_host, "id");
+  auto position = Cabana::slice<field::Position>(aosoa_host, "position");
+  auto velocity = Cabana::slice<field::Velocity>(aosoa_host, "velocity");
 
   float min_pos[3];
   float max_pos[3];
@@ -148,12 +148,12 @@ void Particles<MemorySpace, ExecutionSpace>::readRawData(std::string file_name)
       "max["<< max_pos[0] << "," << max_pos[1] << "," << max_pos[2] << "]" << std::endl;
 }
 
-template <class MemorySpace, class ExecutionSpace>
-void Particles<MemorySpace, ExecutionSpace>::reorder(const float min_pos, const float max_pos)
+template <class MemorySpace, class ExecutionSpace, class DataTypes>
+void Particles<MemorySpace, ExecutionSpace, DataTypes>::reorder(const float min_pos, const float max_pos)
 {
-  auto id = Cabana::slice<ParticleID>(aosoa_host, "id");
-  auto position = Cabana::slice<Position>(aosoa_host, "position");
-  auto velocity = Cabana::slice<Velocity>(aosoa_host, "velocity");
+  auto id = Cabana::slice<field::ParticleID>(aosoa_host, "id");
+  auto position = Cabana::slice<field::Position>(aosoa_host, "position");
+  auto velocity = Cabana::slice<field::Velocity>(aosoa_host, "velocity");
 
   // Relocate any particle outside of the boundary to the end of the 
   // aosoa -- outside particles start at this->end until the end of the aosoa.
