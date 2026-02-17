@@ -20,11 +20,20 @@ namespace HACCabana
 //--------------------------------------
 // Base interface
 //--------------------------------------
-template <class DataTypes>
 class SolverBase
 {
   public:
-    using member_types = typename DataTypes::data_types;
+    struct ParticleData
+    {
+    using member_types = Cabana::MemberTypes<int64_t, float[3], float[3], int>;
+
+        struct field
+        {
+            enum : int { ParticleID = 0, Position = 1, Velocity = 2, BinIndex = 3 };
+        };
+    };
+
+    using member_types = typename ParticleData::member_types;
     using aosoa_host_type = Cabana::AoSoA<member_types, Kokkos::HostSpace, VECTOR_LENGTH>;
 
     virtual ~SolverBase() = default;
@@ -35,21 +44,21 @@ class SolverBase
     virtual void subCycle() = 0;
     virtual int num_p() = 0;
 
-    virtual std::shared_ptr<Parameters> parameters() = 0;
+    virtual Parameters parameters() = 0;
     virtual aosoa_host_type particles() = 0;
 };
 
 //--------------------------------------
 // Templated solver
 //--------------------------------------
-template <class MemorySpace, class ExecutionSpace, class DataTypes>
-class Solver : public SolverBase<DataTypes>
+template <class MemorySpace, class ExecutionSpace>
+class Solver : public SolverBase
 {
   public:
     using execution_space = ExecutionSpace;
     using memory_space = MemorySpace;
     using data_types = DataTypes;
-    using typename SolverBase<DataTypes>::aosoa_host_type; 
+    using typename SolverBase::aosoa_host_type; 
 
     using parameters_type = Parameters;
     using particles_type = Particles<memory_space, execution_space, data_types>;
@@ -73,7 +82,7 @@ class Solver : public SolverBase<DataTypes>
 
     void subCycle() override;
 
-    int num_p() override {return _particles->num_p;}
+    int num_p() override {return _particles.num_p;}
 
     // void solve( double t_final, int write_freq ) override;
     // {
@@ -93,16 +102,19 @@ class Solver : public SolverBase<DataTypes>
     //     }
     // }
 
-    std::shared_ptr<parameters_type> parameters() override {return _parameters;}
-    aosoa_host_type particles() override {return _particles->aosoa_host;}
+    Parameters parameters() override {return _parameters;}
+    aosoa_host_type particles() override {return _particles.aosoa_host;}
 
   private:
     const int _step0;
-    std::shared_ptr<parameters_type> _parameters;
-    std::unique_ptr<particles_type> _particles;
-    std::unique_ptr<actions_type> _actions;
+    parameters_type _parameters;
+    particles_type _particles;
+    actions_type _actions;
     std::unique_ptr<timestepper_type> _timestepper;
 };
+
+extern template class Solver<Kokkos::HostSpace, Kokkos::Serial, DataTypes>;
+extern template class Solver<Kokkos::CudaSpace, Kokkos::Cuda, DataTypes>;
 
 template<class DataTypes>
 std::shared_ptr<SolverBase<DataTypes>>

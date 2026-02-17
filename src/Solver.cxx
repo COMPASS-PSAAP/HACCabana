@@ -6,10 +6,11 @@ namespace HACCabana
 template <class MemorySpace, class ExecutionSpace, class DataTypes>
 Solver<MemorySpace, ExecutionSpace, DataTypes>::Solver( const int step0 )
     : _step0(step0)
+    , _parameters()
+    , _particles()
+    , _actions( &_particles )
 {
-    _parameters = std::shared_ptr<parameters_type>();
-    _particles = std::make_unique<particles_type>();
-    _actions = std::make_unique<actions_type>(*_particles);
+    
 }
 
 template <class MemorySpace, class ExecutionSpace, class DataTypes>
@@ -17,23 +18,23 @@ void Solver<MemorySpace, ExecutionSpace, DataTypes>::setup(const int config_flag
 {
     if (config_flag)
     {
-        _parameters->load_from_file(configuration_filename);
+        _parameters.load_from_file(configuration_filename);
     }
     _timestepper = std::make_unique<timestepper_type>(
-            _parameters->alpha,
-            _parameters->a_in,
-            _parameters->a_fin,
-            _parameters->nsteps,
-            _parameters->omega_matter,
-            _parameters->omega_cdm,
-            _parameters->omega_baryon,
-            _parameters->omega_cb,
-            _parameters->omega_nu,
-            _parameters->omega_radiation,
-            _parameters->f_nu_massless,
-            _parameters->f_nu_massive,
-            _parameters->w_de,
-            _parameters->wa_de);
+            _parameters.alpha,
+            _parameters.a_in,
+            _parameters.a_fin,
+            _parameters.nsteps,
+            _parameters.omega_matter,
+            _parameters.omega_cdm,
+            _parameters.omega_baryon,
+            _parameters.omega_cb,
+            _parameters.omega_nu,
+            _parameters.omega_radiation,
+            _parameters.f_nu_massless,
+            _parameters.f_nu_massive,
+            _parameters.w_de,
+            _parameters.wa_de);
 }
 
 template <class MemorySpace, class ExecutionSpace, class DataTypes>
@@ -50,8 +51,8 @@ void Solver<MemorySpace, ExecutionSpace, DataTypes>::advance()
 template <class MemorySpace, class ExecutionSpace, class DataTypes>
 void Solver<MemorySpace, ExecutionSpace, DataTypes>::setupParticles(const int input_flag, const std::string& input_filename)
 {
-    const float min_alive_pos = _parameters->oL;
-    const float max_alive_pos = _parameters->rL+_parameters->oL;
+    const float min_alive_pos = _parameters.oL;
+    const float max_alive_pos = _parameters.rL+_parameters.oL;
 
     if (input_flag)
     {
@@ -61,24 +62,26 @@ void Solver<MemorySpace, ExecutionSpace, DataTypes>::setupParticles(const int in
     else
     {
         std::cout << "Generating synthetic data in range [" << min_alive_pos << "," << max_alive_pos << "] " 
-            << "rL=" << _parameters->rL << " oL=" << _parameters->oL << std::endl;
-        _particles.generateData(_parameters->np, _parameters->rL, _parameters->oL, MEAN_VEL);
-        _particles.convert_phys2grid(_parameters->ng, _parameters->rL, _timestepper->aa());
+            << "rL=" << _parameters.rL << " oL=" << _parameters.oL << std::endl;
+        _particles.generateData(_parameters.np, _parameters.rL, _parameters.oL, MEAN_VEL);
+        _particles.convert_phys2grid(_parameters.ng, _parameters.rL, _timestepper->aa());
     }
 
     _particles.reorder(min_alive_pos, max_alive_pos); // TODO:assumes local extent equals the global extent
     std::cout << "\t" << _particles.end-_particles.begin << " particles in [" << min_alive_pos << "," << max_alive_pos << "]" << std::endl;
-
 }
 
 template <class MemorySpace, class ExecutionSpace, class DataTypes>
 void Solver<MemorySpace, ExecutionSpace, DataTypes>::subCycle()
 {
-    _actions.subCycle(*_timestepper, _parameters->nsub, _parameters->gpscal,
-                    _parameters->rmax*_parameters->rmax,
-                    _parameters->rsm*_parameters->rsm,
-                    _parameters->cm_size, _parameters->oL,
-                    _parameters->rL+_parameters->oL);
+    _actions.subCycle(*_timestepper, _parameters.nsub, _parameters.gpscal,
+                    _parameters.rmax*_parameters.rmax,
+                    _parameters.rsm*_parameters.rsm,
+                    _parameters.cm_size, _parameters.oL,
+                    _parameters.rL+_parameters.oL);
 }
+
+template class Solver<Kokkos::HostSpace, Kokkos::Serial, DataTypes>;
+template class Solver<Kokkos::CudaSpace, Kokkos::Cuda, DataTypes>;
 
 } // end namespace HACCabana

@@ -219,11 +219,11 @@ int main( int argc, char* argv[] )
 
     // don't check particles in boundary cells
     auto parameters = solver->parameters();
-    const float dx_boundary = parameters->cm_size;
-    const float min_alive_pos = parameters->oL;
-    const float max_alive_pos = parameters->rL+parameters->oL;
+    const float dx_boundary = parameters.cm_size;
+    const float min_alive_pos = parameters.oL;
+    const float max_alive_pos = parameters.rL+parameters.oL;
 
-    cout << "\tExcluding boundary cells of Linked Cell List.\n\tChecking all particles within [" << parameters->oL+dx_boundary << "," << parameters->rL+parameters->oL-dx_boundary << ")" << endl;
+    cout << "\tExcluding boundary cells of Linked Cell List.\n\tChecking all particles within [" << parameters.oL+dx_boundary << "," << parameters.rL+parameters.oL-dx_boundary << ")" << endl;
 
     int count = 0;
     int err_n = 0;
