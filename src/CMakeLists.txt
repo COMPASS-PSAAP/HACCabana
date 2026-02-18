@@ -7,28 +7,29 @@ set(HACCABANA_HEADERS
   Definitions.h
   Parameters.h
   ParticleActions.h
+  ParticleActions_impl.h
   Particles.h
+  Particle_impl.h
   TimeStepper.h
   Solver.h
+  Solver_impl.h
 )
 
 set(HACCABANA_SOURCES
   Parameters.cxx
-  ParticleActions.cxx
-  Particles.cxx
   TimeStepper.cxx
-  Solver.cxx
 )
 
 add_library(HACCabana ${HACCABANA_SOURCES})
 
 target_include_directories(HACCabana
   PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>  # for generated config header if needed
+    $<INSTALL_INTERFACE:include>
 )
 
+add_library(HACCabana::haccabana ALIAS HACCabana)
 target_link_libraries(HACCabana PUBLIC Cabana::Core)
 
 # Require C++17 for consumers and for building this target
@@ -56,8 +57,3 @@ install(FILES ${HACCABANA_HEADERS}
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/HACCabana_Config.hpp
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
-
-# Example driver (not part of the library)
-add_executable(driver_short-range driver_gpu.cxx)
-target_link_libraries(driver_short-range PRIVATE HACCabana)
-install(TARGETS driver_short-range DESTINATION ${CMAKE_INSTALL_BINDIR})

@@ -3,8 +3,8 @@
 namespace HACCabana
 {
 
-template <class MemorySpace, class ExecutionSpace, class DataTypes>
-Solver<MemorySpace, ExecutionSpace, DataTypes>::Solver( const int step0 )
+template <class MemorySpace, class ExecutionSpace>
+Solver<MemorySpace, ExecutionSpace>::Solver( const int step0 )
     : _step0(step0)
     , _parameters()
     , _particles()
@@ -13,8 +13,8 @@ Solver<MemorySpace, ExecutionSpace, DataTypes>::Solver( const int step0 )
     
 }
 
-template <class MemorySpace, class ExecutionSpace, class DataTypes>
-void Solver<MemorySpace, ExecutionSpace, DataTypes>::setup(const int config_flag, const std::string& configuration_filename)
+template <class MemorySpace, class ExecutionSpace>
+void Solver<MemorySpace, ExecutionSpace>::setup(const int config_flag, const std::string& configuration_filename)
 {
     if (config_flag)
     {
@@ -37,8 +37,8 @@ void Solver<MemorySpace, ExecutionSpace, DataTypes>::setup(const int config_flag
             _parameters.wa_de);
 }
 
-template <class MemorySpace, class ExecutionSpace, class DataTypes>
-void Solver<MemorySpace, ExecutionSpace, DataTypes>::advance()
+template <class MemorySpace, class ExecutionSpace>
+void Solver<MemorySpace, ExecutionSpace>::advance()
 {
     std::cout << "Advancing timestepper to step " << _step0 << std::endl;
     // get timestepper up to speed
@@ -48,8 +48,8 @@ void Solver<MemorySpace, ExecutionSpace, DataTypes>::advance()
     // we're starting to subcycle after a PM kick
     _timestepper->advanceHalfStep();
 }
-template <class MemorySpace, class ExecutionSpace, class DataTypes>
-void Solver<MemorySpace, ExecutionSpace, DataTypes>::setupParticles(const int input_flag, const std::string& input_filename)
+template <class MemorySpace, class ExecutionSpace>
+void Solver<MemorySpace, ExecutionSpace>::setupParticles(const int input_flag, const std::string& input_filename)
 {
     const float min_alive_pos = _parameters.oL;
     const float max_alive_pos = _parameters.rL+_parameters.oL;
@@ -71,8 +71,8 @@ void Solver<MemorySpace, ExecutionSpace, DataTypes>::setupParticles(const int in
     std::cout << "\t" << _particles.end-_particles.begin << " particles in [" << min_alive_pos << "," << max_alive_pos << "]" << std::endl;
 }
 
-template <class MemorySpace, class ExecutionSpace, class DataTypes>
-void Solver<MemorySpace, ExecutionSpace, DataTypes>::subCycle()
+template <class MemorySpace, class ExecutionSpace>
+void Solver<MemorySpace, ExecutionSpace>::subCycle()
 {
     _actions.subCycle(*_timestepper, _parameters.nsub, _parameters.gpscal,
                     _parameters.rmax*_parameters.rmax,
@@ -80,8 +80,5 @@ void Solver<MemorySpace, ExecutionSpace, DataTypes>::subCycle()
                     _parameters.cm_size, _parameters.oL,
                     _parameters.rL+_parameters.oL);
 }
-
-template class Solver<Kokkos::HostSpace, Kokkos::Serial, DataTypes>;
-template class Solver<Kokkos::CudaSpace, Kokkos::Cuda, DataTypes>;
 
 } // end namespace HACCabana

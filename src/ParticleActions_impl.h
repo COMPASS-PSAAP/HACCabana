@@ -54,8 +54,8 @@ void ParticleActions<ParticleType>::updatePos(\
     aosoa_type aosoa_device,\
     float prefactor)
 {
-  auto position = Cabana::slice<fields::Position>(aosoa_device, "position");
-  auto velocity = Cabana::slice<fields::Velocity>(aosoa_device, "velocity");
+  auto position = Cabana::slice<Field::Position>(aosoa_device, "position");
+  auto velocity = Cabana::slice<Field::Velocity>(aosoa_device, "velocity");
 
   Kokkos::parallel_for("stream", Kokkos::RangePolicy<execution_space>(0, P->num_p),
   KOKKOS_LAMBDA(const int i) {
@@ -68,14 +68,15 @@ void ParticleActions<ParticleType>::updatePos(\
 
 // Kick
 template <class ParticleType>
+template <class CellListType>
 void ParticleActions<ParticleType>::updateVel(
     aosoa_type aosoa_device,
-    Cabana::LinkedCellList<memory_space> cell_list,
+    CellListType cell_list,
     const float c, const float rmax2, const float rsm2)
 {
-  auto position = Cabana::slice<fields::Position>(aosoa_device, "position");
-  auto velocity = Cabana::slice<fields::Velocity>(aosoa_device, "velocity");
-  auto bin_index = Cabana::slice<fields::BinIndex>(aosoa_device, "bin_index");
+  auto position = Cabana::slice<Field::Position>(aosoa_device, "position");
+  auto velocity = Cabana::slice<Field::Velocity>(aosoa_device, "velocity");
+  auto bin_index = Cabana::slice<Field::BinIndex>(aosoa_device, "bin_index");
 
   Kokkos::parallel_for("copy_bin_index", Kokkos::RangePolicy<execution_space>(0, cell_list.totalBins()),
   KOKKOS_LAMBDA(const int i)
@@ -160,8 +161,10 @@ void ParticleActions<ParticleType>::subCycle(TimeStepper &ts, const int nsub, co
   float grid_min[3] = {x_min, x_min, x_min};
   float grid_max[3] = {x_max, x_max, x_max};
 
-  auto position = Cabana::slice<fields::Position>(aosoa_device, "position");
-  Cabana::LinkedCellList<memory_space> cell_list(position, P->begin, P->end, grid_delta, grid_min, grid_max);
+  auto position = Cabana::slice<Field::Position>(aosoa_device, "position");
+  auto cell_list = Cabana::createLinkedCellList(
+          position, P->begin, P->end, grid_delta, grid_min, grid_max );
+  // Cabana::LinkedCellList<memory_space> cell_list(position, P->begin, P->end, grid_delta, grid_min, grid_max);
   Cabana::permute(cell_list, aosoa_device);
   Kokkos::fence();
 

@@ -98,6 +98,9 @@ message(STATUS "HACCabana Revision = '${HACCabana_GIT_COMMIT_HASH}'")
 # Source code
 add_subdirectory(src)
 
+# Drivers
+add_subdirectory(drivers)
+
 # Package configuration files (HACCabanaConfig.cmake + version file)
 write_basic_package_version_file(
   "${CMAKE_CURRENT_BINARY_DIR}/HACCabanaConfigVersion.cmake"
