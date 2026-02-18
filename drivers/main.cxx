@@ -47,10 +47,10 @@ int main( int argc, char* argv[] )
   int synthetic_data_flag = 0;  // generate synthetic data
   int timestep_flag = 0;        // timstep to advance to (required)
   int config_flag = 0;          // configuration file (optional)
-  char *input_filename = NULL;
-  char *verification_filename = NULL;
-  char *t_value = NULL;
-  char *configuration_filename = NULL;
+  std::string input_filename = "";
+  std::string verification_filename = "";
+  char* t_value = NULL;
+  std::string configuration_filename = "";
   int c;
   opterr = 0;
 

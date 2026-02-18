@@ -53,7 +53,6 @@ void Solver<MemorySpace, ExecutionSpace>::setupParticles(const int input_flag, c
 {
     const float min_alive_pos = _parameters.oL;
     const float max_alive_pos = _parameters.rL+_parameters.oL;
-
     if (input_flag)
     {
         std::cout << "Reading file: " << input_filename << std::endl;
