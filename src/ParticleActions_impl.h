@@ -12,27 +12,6 @@ double mytime() {
 namespace HACCabana
 {
 
-template <class ParticleType, template<class, class> class ForceSolverT = DefaultForceSolverT>
-ParticleActions<ParticleType>::ParticleActions() {};
-
-template <class ParticleType, template<class, class> class ForceSolverT = DefaultForceSolverT>
-ParticleActions<ParticleType>::ParticleActions(ParticleType *P_) : P(P_)
-{
-  ;
-};
-
-template <class ParticleType, template<class, class> class ForceSolverT = DefaultForceSolverT>
-ParticleActions<ParticleType>::~ParticleActions()
-{
-  ;
-};
-
-template <class ParticleType, template<class, class> class ForceSolverT = DefaultForceSolverT>
-void ParticleActions<ParticleType>::setParticles(ParticleType *P_)
-{
-  P = P_;
-}
-
 // Stream
 template <class ParticleType, template<class, class> class ForceSolverT = DefaultForceSolverT>
 void ParticleActions<ParticleType>::updatePos(\
