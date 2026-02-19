@@ -8,10 +8,19 @@
 #include "Definitions.h"
 #include "TimeStepper.h"
 #include "Particles.h"
+#include "ForceSolvers.h"
+
+#ifdef HACCabana_ENABLE_CANOPY
+template<class A, class F>
+using DefaultForceSolverT = CanopyForceSolver<A,F>;
+#else
+template<class A, class F>
+using DefaultForceSolverT = P3MForceSolver<A,F>;
+#endif
 
 namespace HACCabana 
 {
-  template <class ParticleType>
+  template <class ParticleType, template<class, class> class ForceSolverT = DefaultForceSolverT>
   class ParticleActions
   {
   public:
@@ -20,6 +29,7 @@ namespace HACCabana
     using Field = typename ParticleType::Field;
     using aosoa_type = typename ParticleType::aosoa_type;
     using aosoa_host_type = typename ParticleType::aosoa_host_type;
+    using force_solver_type = ForceSolverT<aosoa_type, Field>;
 
     ParticleActions();
     ParticleActions(ParticleType *P_);
@@ -37,6 +47,7 @@ namespace HACCabana
 
   private:
     ParticleType *P;
+    force_solver_type _force_solver;
   };
 }
 

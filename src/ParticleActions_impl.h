@@ -9,47 +9,32 @@ double mytime() {
   return time;
 }
 
-// Polynomial long range force calculation
-KOKKOS_INLINE_FUNCTION
-float FGridEvalPoly(float r2)
-{
-#if POLY_ORDER == 6
-  return (0.271431f + r2*(-0.0783394f + r2*(0.0133122f + r2*(-0.00159485f + r2*(0.000132336f + r2*(-0.00000663394f + r2*0.000000147305f))))));
-#elif POLY_ORDER == 5
-  return (0.269327f + r2*(-0.0750978f + r2*(0.0114808f + r2*(-0.00109313f + r2*(0.0000605491f + r2*-0.00000147177f)))));
-#elif POLY_ORDER == 4
-  return (0.263729f + r2*(-0.0686285f + r2*(0.00882248f + r2*(-0.000592487f + r2*0.0000164622f))));
-#else
-  return 0.0f;
-#endif
-}
-
 namespace HACCabana
 {
 
-template <class ParticleType>
+template <class ParticleType, template<class, class> class ForceSolverT = DefaultForceSolverT>
 ParticleActions<ParticleType>::ParticleActions() {};
 
-template <class ParticleType>
+template <class ParticleType, template<class, class> class ForceSolverT = DefaultForceSolverT>
 ParticleActions<ParticleType>::ParticleActions(ParticleType *P_) : P(P_)
 {
   ;
 };
 
-template <class ParticleType>
+template <class ParticleType, template<class, class> class ForceSolverT = DefaultForceSolverT>
 ParticleActions<ParticleType>::~ParticleActions()
 {
   ;
 };
 
-template <class ParticleType>
+template <class ParticleType, template<class, class> class ForceSolverT = DefaultForceSolverT>
 void ParticleActions<ParticleType>::setParticles(ParticleType *P_)
 {
   P = P_;
 }
 
 // Stream
-template <class ParticleType>
+template <class ParticleType, template<class, class> class ForceSolverT = DefaultForceSolverT>
 void ParticleActions<ParticleType>::updatePos(\
     aosoa_type aosoa_device,\
     float prefactor)
@@ -67,7 +52,7 @@ void ParticleActions<ParticleType>::updatePos(\
 }
 
 // Kick
-template <class ParticleType>
+template <class ParticleType, template<class, class> class ForceSolverT = DefaultForceSolverT>
 template <class CellListType>
 void ParticleActions<ParticleType>::updateVel(
     aosoa_type aosoa_device,
@@ -143,7 +128,7 @@ void ParticleActions<ParticleType>::updateVel(
   Kokkos::fence();
 }
 
-template <class ParticleType>
+template <class ParticleType, template<class, class> class ForceSolverT = DefaultForceSolverT>
 void ParticleActions<ParticleType>::subCycle(TimeStepper &ts, const int nsub, const float gpscal, const float rmax2, const float rsm2, 
     const float cm_size, const float min_pos, const float max_pos)
 {
