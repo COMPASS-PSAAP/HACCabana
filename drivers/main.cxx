@@ -169,7 +169,34 @@ int main( int argc, char* argv[] )
 
   // HACCabana::ParticleActions PA(&P);
   // PA.subCycle(ts, Params.nsub, Params.gpscal, Params.rmax*Params.rmax, Params.rsm*Params.rsm, Params.cm_size, Params.oL, Params.rL+Params.oL);
+  // don't check particles in boundary cells
+  auto parameters = solver->parameters();
+  const float dx_boundary = parameters.cm_size;
+  const float min_alive_pos = parameters.oL;
+  const float max_alive_pos = parameters.rL+parameters.oL;
 
+  cout << "\tExcluding boundary cells of Linked Cell List.\n\tPrinting all particles within [" << parameters.oL+dx_boundary << "," << parameters.rL+parameters.oL-dx_boundary << ")" << endl;
+
+  int num_p = solver->num_p();
+  using Field = typename HACCabana::Solver<MemorySpace, ExecutionSpace>::particles_type::Field;
+  cout << "\nPrinting result for " << num_p << " particles."  << endl;
+  auto particles_h = solver->particles();
+  auto particle_id = Cabana::slice<Field::ParticleID>( particles_h, "particle_id" );
+  auto sort_data = Cabana::sortByKey( particle_id );
+  Cabana::permute( sort_data, particles_h );
+  auto position = Cabana::slice<Field::Position>( particles_h, "position" );
+  for (int i=0; i<num_p; ++i)
+  {
+    if (position(i,0) >= min_alive_pos+dx_boundary &&\
+        position(i,1) >= min_alive_pos+dx_boundary &&\
+        position(i,2) >= min_alive_pos+dx_boundary &&\
+        position(i,0) <  max_alive_pos-dx_boundary &&\
+        position(i,1) <  max_alive_pos-dx_boundary &&\
+        position(i,2) <  max_alive_pos-dx_boundary)
+    {
+      printf("P%d: pos %.2lf, %.2lf, %.2lf\n", i, position(i, 0), position(i, 1), position(i, 2));
+    }
+  }
   // verify against the answer from the simulation
   // --------------------------------------------------------------------------------------------------------------------------
 
