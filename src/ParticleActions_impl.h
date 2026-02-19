@@ -164,7 +164,6 @@ void ParticleActions<ParticleType>::subCycle(TimeStepper &ts, const int nsub, co
   auto position = Cabana::slice<Field::Position>(aosoa_device, "position");
   auto cell_list = Cabana::createLinkedCellList(
           position, P->begin, P->end, grid_delta, grid_min, grid_max );
-  // Cabana::LinkedCellList<memory_space> cell_list(position, P->begin, P->end, grid_delta, grid_min, grid_max);
   Cabana::permute(cell_list, aosoa_device);
   Kokkos::fence();
 
