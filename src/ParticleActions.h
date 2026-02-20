@@ -13,11 +13,11 @@
 #include <sys/time.h>
 
 #ifdef HACCabana_ENABLE_CANOPY
-template<class A, class F>
-using DefaultForceSolverT = CanopyForceSolver<A,F>;
+template<class AoSoAType, class Field>
+using DefaultForceSolverType = CanopyForceSolver<AoSoAType, Field>;
 #else
-template<class A, class F>
-using DefaultForceSolverT = P3MForceSolver<A,F>;
+template<class AoSoAType, class Field>
+using DefaultForceSolverType = P3MForceSolver<AoSoAType, Field>;
 #endif
 
 double mytime() {
@@ -31,27 +31,28 @@ double mytime() {
 namespace HACCabana 
 {
 
-template <class ParticleType, template<class, class> class ForceSolverT = DefaultForceSolverT>
+template <class ParticleType, template<class, class> class ForceSolverType = DefaultForceSolverType>
 class ParticleActions
 {
     public:
-    using memory_space = typename ParticleType::memory_space;
-    using execution_space = typename ParticleType::execution_space;
-    using Field = typename ParticleType::Field;
-    using aosoa_type = typename ParticleType::aosoa_type;
-    using aosoa_host_type = typename ParticleType::aosoa_host_type;
-    using force_solver_type = ForceSolverT<aosoa_type, Field>;
+    using particle_type = ParticleType;
+    using memory_space = typename particle_type::memory_space;
+    using execution_space = typename particle_type::execution_space;
+    using Field = typename particle_type::Field;
+    using aosoa_type = typename particle_type::aosoa_type;
+    using aosoa_host_type = typename particle_type::aosoa_host_type;
+    using force_solver_type = ForceSolverType<aosoa_type, Field>;
 
     ParticleActions() {}
 
-    ParticleActions(ParticleType *P_)
+    ParticleActions(particle_type *P_)
         : P(P_)
     {
     };
 
     ~ParticleActions() {}
 
-    void setParticles(ParticleType *P_)
+    void setParticles(particle_type *P_)
     {
         P = P_;
     }
@@ -208,7 +209,7 @@ class ParticleActions
 
 
     private:
-    ParticleType *P;
+    particle_type *P;
     force_solver_type _force_solver;
 };
 

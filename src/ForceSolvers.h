@@ -27,6 +27,7 @@ class P3MForceSolver
   using execution_space = typename AoSoAType::execution_space;
   Cabana::LinkedCellList<memory_space, float, 3> _cell_list;
   
+  size_t _begin, _end;
   float _rmax2;
   float _rsm2;
 
@@ -40,6 +41,8 @@ class P3MForceSolver
                       const float min_pos, const float max_pos,
                       const float rmax2, const float rsm2)
   {
+    _begin = begin;
+    _end = _end;
     _rmax2 = rmax2;
     _rsm2 = rsm2;
     
@@ -53,7 +56,7 @@ class P3MForceSolver
 
     auto position = Cabana::slice<Field::Position>(aosoa_device, "position");
     _cell_list = Cabana::createLinkedCellList(
-            position, begin, end, grid_delta, grid_min, grid_max );
+            position, _begin, _end, grid_delta, grid_min, grid_max );
     Cabana::permute(_cell_list, aosoa_device);
     Kokkos::fence();
   }
@@ -123,7 +126,7 @@ class P3MForceSolver
         velocity.access(s,a,2) += force[2] * c;
     };
 
-    Cabana::SimdPolicy<VECTOR_LENGTH, execution_space> simd_policy(begin, end);
+    Cabana::SimdPolicy<VECTOR_LENGTH, execution_space> simd_policy(_begin, _end);
     Cabana::simd_parallel_for( simd_policy, vector_kick, "kick" ); 
 
     Kokkos::fence();
