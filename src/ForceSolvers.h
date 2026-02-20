@@ -61,10 +61,11 @@ class P3MForceSolver
     Kokkos::fence();
   }
 
-  void kick(AoSoAType& aosoa_device, const float c, float rmax2, float rsm2)
+  void updateVel(AoSoAType& aosoa_device, const float c, float rmax2, float rsm2)
   {
     auto position = Cabana::slice<Field::Position>(aosoa_device, "position");
     auto velocity = Cabana::slice<Field::Velocity>(aosoa_device, "velocity");
+    auto force = Cabana::slice<Field::Force>(aosoa_device, "force");
     auto bin_index = Cabana::slice<Field::BinIndex>(aosoa_device, "bin_index");
     auto cell_list = _cell_list;
 
@@ -86,7 +87,11 @@ class P3MForceSolver
         int bin_ijk[3];
         cell_list.ijkBinIndex(bin_index.access(s,a), bin_ijk[0], bin_ijk[1], bin_ijk[2]);
 
-        float force[3] = {0.0, 0.0, 0.0};
+        // Zero force
+        force.access(s,a,0)  = 0.0;
+        force.access(s,a,1)  = 0.0;
+        force.access(s,a,2)  = 0.0;
+
         for (int ii=-1; ii<2; ++ii) 
         {
         if (bin_ijk[0] + ii < 0 || bin_ijk[0] + ii >= cell_list.numBin(0))
@@ -113,17 +118,17 @@ class P3MForceSolver
                     {
                     const float dist2Err = dist2 + rsm2;
                     const float tmp =  1.0f/Kokkos::sqrt(dist2Err*dist2Err*dist2Err) - FGridEvalPoly(dist2);
-                    force[0] += dx * tmp;
-                    force[1] += dy * tmp;
-                    force[2] += dz * tmp;
+                    force.access(s,a,0) += dx * tmp;
+                    force.access(s,a,1) += dy * tmp;
+                    force.access(s,a,2) += dz * tmp;
                     }
                 }
             }
         }
         }
-        velocity.access(s,a,0) += force[0] * c;
-        velocity.access(s,a,1) += force[1] * c;
-        velocity.access(s,a,2) += force[2] * c;
+        velocity.access(s,a,0) += force.access(s,a,0) * c;
+        velocity.access(s,a,1) += force.access(s,a,1) * c;
+        velocity.access(s,a,2) += force.access(s,a,2) * c;
     };
 
     Cabana::SimdPolicy<VECTOR_LENGTH, execution_space> simd_policy(_begin, _end);
@@ -133,8 +138,7 @@ class P3MForceSolver
   }
 };
 #ifdef HACCabana_ENABLE_CANOPY
-template<class AoSoAType, class Field>
-class CanopyForceSolver;
+#include "CanopyForceSolver.h"
 #endif
 
 #endif

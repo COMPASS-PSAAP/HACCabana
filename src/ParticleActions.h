@@ -64,22 +64,6 @@ class ParticleActions
         aosoa_type aosoa_device("aosoa_device", P->num_p);
         Cabana::deep_copy(aosoa_device, P->aosoa_host);
 
-        // create the cell list on the GPU
-        // NOTE: fuzz particles (outside of overload) are not included
-        float dx = cm_size;
-        float x_min = min_pos;
-        float x_max = max_pos;
-
-        float grid_delta[3] = {dx, dx, dx};
-        float grid_min[3] = {x_min, x_min, x_min};
-        float grid_max[3] = {x_max, x_max, x_max};
-
-        auto position = Cabana::slice<Field::Position>(aosoa_device, "position");
-        auto cell_list = Cabana::createLinkedCellList(
-                position, P->begin, P->end, grid_delta, grid_min, grid_max );
-        Cabana::permute(cell_list, aosoa_device);
-        Kokkos::fence();
-
         // ------------------------------------------------------------------------------------
         const double stepFraction = 1.0/nsub;
 
@@ -96,6 +80,27 @@ class ParticleActions
         const float prefactor = 1.0 / (ts.alpha() * ts.adot() * pf);
         float tau = ts.tau()*stepFraction;
 
+        _force_solver.setup_subcycle(aosoa_device,
+                      P->begin, P->end, c, cm_size,
+                      min_pos, max_pos,
+                      rmax2, rsm2);
+
+        // create the cell list on the GPU
+        // NOTE: fuzz particles (outside of overload) are not included
+        // float dx = cm_size;
+        // float x_min = min_pos;
+        // float x_max = max_pos;
+
+        // float grid_delta[3] = {dx, dx, dx};
+        // float grid_min[3] = {x_min, x_min, x_min};
+        // float grid_max[3] = {x_max, x_max, x_max};
+
+        // auto position = Cabana::slice<Field::Position>(aosoa_device, "position");
+        // auto cell_list = Cabana::createLinkedCellList(
+        //         position, P->begin, P->end, grid_delta, grid_min, grid_max );
+        // Cabana::permute(cell_list, aosoa_device);
+        // Kokkos::fence();
+
         double kick_time = 0.0f;
         // SKS subcycles
         for(int step=0; step < nsub; ++step) 
@@ -107,7 +112,7 @@ class ParticleActions
 
             // kick
             double tmp = mytime();
-            this->updateVel(aosoa_device, cell_list, c, rmax2, rsm2);
+            _force_solver.updateVel(aosoa_device, c, rmax2, rsm2);
             kick_time += mytime() - tmp;
 
             //half stream

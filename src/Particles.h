@@ -16,11 +16,11 @@ class Particles
 public:
     struct ParticleData
     {
-    using member_types = Cabana::MemberTypes<int64_t, float[3], float[3], int>;
+    using member_types = Cabana::MemberTypes<int64_t, float[3], float[3], float, float, int>;
 
         struct Field
         {
-            enum : int { ParticleID = 0, Position = 1, Velocity = 2, BinIndex = 3 };
+            enum : int { ParticleID = 0, Position = 1, Velocity = 2, Force = 4, Gravity = 3, BinIndex = 3 };
         };
     };
     using memory_space = MemorySpace;
@@ -94,12 +94,15 @@ public:
 
         std::normal_distribution<float> d2{0.0, 1.0};
         auto velocity = Cabana::slice<Field::Velocity>(aosoa_host, "velocity");
+        auto gravity = Cabana::slice<Field::Gravity>(aosoa_host, "gravity");
 
         for (int i=0; i<num_p; ++i)
         {
             for (int j=0; j<3; ++j) {
             velocity(i,j) = vel_1d * d2(gen);
             }
+            // Each particle exerts a gravitational pull of the same strength
+            gravity(i) = 1.0;
         }
 
         this->begin = 0;
