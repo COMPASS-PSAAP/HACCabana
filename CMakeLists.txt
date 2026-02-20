@@ -75,8 +75,8 @@ if(NOT Cabana_ENABLE_GRID)
 endif()
 
 # Optional dependency: Canopy
-HACCabana_add_dependency(PACKAGE canopy)
-set_package_properties(canopy PROPERTIES
+HACCabana_add_dependency(PACKAGE Canopy)
+set_package_properties(Canopy PROPERTIES
   TYPE OPTIONAL
   PURPOSE "Fast multipole solver for far-field forces"
 )
