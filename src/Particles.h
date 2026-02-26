@@ -16,11 +16,11 @@ class Particles
 public:
     struct ParticleData
     {
-    using member_types = Cabana::MemberTypes<int64_t, float[3], float[3], float, float, int>;
+    using member_types = Cabana::MemberTypes<int64_t, float[3], float[3], float[3], float, int>;
 
         struct Field
         {
-            enum : int { ParticleID = 0, Position = 1, Velocity = 2, Force = 4, Gravity = 3, BinIndex = 3 };
+            enum : int { ParticleID = 0, Position = 1, Velocity = 2, Force = 3, Gravity = 4, BinIndex = 5 };
         };
     };
     using memory_space = MemorySpace;
