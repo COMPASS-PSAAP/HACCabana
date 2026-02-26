@@ -10,9 +10,10 @@ class CanopyForceSolver
   // Variables needed for Canopy
   using memory_space = typename AoSoAType::memory_space;
   using execution_space = typename AoSoAType::execution_space;
+  using MD = Canopy::ParticleMetadata<AoSoAType, Field::Position, Field::Gravity, Field::Potential, Field::Force>; 
   static constexpr num_coefficients = 6;
-  std::shared_ptr<Canopy::Solver<execution_space, memory_space, AoSoAType,
-    Field::Position, Field::Gravity, Field::Force, 3, 2, num_coefficients>> _solver;
+  std::shared_ptr<Canopy::Solver<execution_space, memory_space, MD,
+                                 2, num_coefficients>> _solver;
   
   size_t _begin, _end;
   float _rmax2;
@@ -41,29 +42,15 @@ class CanopyForceSolver
     float grid_min[3] = {x_min, x_min, x_min};
     float grid_max[3] = {x_max, x_max, x_max};
 
-    _solver = Canopy::createSolver<execution_space, memory_space, AoSoAType,
-        Field::Position, Field::Gravity, Field::Force, 3, 2, num_coefficients>
+    _solver = Canopy::createSolver<execution_space, memory_space, MD, 2, num_coefficients>
   }
 
   void updateVel(AoSoAType& aosoa_device, const float c, float rmax2, float rsm2)
   {
+    _solver->solve(aosoa_device, 1);
+    
     auto position = Cabana::slice<Field::Position>(aosoa_device, "position");
     auto velocity = Cabana::slice<Field::Velocity>(aosoa_device, "velocity");
-    auto bin_index = Cabana::slice<Field::BinIndex>(aosoa_device, "bin_index");
-    auto cell_list = _cell_list;
-
-    Kokkos::parallel_for("copy_bin_index", Kokkos::RangePolicy<execution_space>(0, cell_list.totalBins()),
-    KOKKOS_LAMBDA(const int i)
-    {
-        int bin_ijk[3];
-        cell_list.ijkBinIndex(i, bin_ijk[0], bin_ijk[1], bin_ijk[2]);
-        for (size_t ii = cell_list.binOffset(bin_ijk[0], bin_ijk[1], bin_ijk[2]); 
-            ii < cell_list.binOffset(bin_ijk[0], bin_ijk[1], bin_ijk[2]) +
-            cell_list.binSize(bin_ijk[0], bin_ijk[1], bin_ijk[2]); 
-            ++ii)
-        bin_index(ii) = i;
-    });
-    Kokkos::fence();
 
     auto vector_kick = KOKKOS_LAMBDA(const int s, const int a)
     {
