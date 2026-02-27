@@ -28,6 +28,7 @@ class P3MForceSolver
   Cabana::LinkedCellList<memory_space, float, 3> _cell_list;
   
   size_t _begin, _end;
+  float _c;
   float _rmax2;
   float _rsm2;
 
@@ -43,6 +44,7 @@ class P3MForceSolver
   {
     _begin = begin;
     _end = _end;
+    _c = c;
     _rmax2 = rmax2;
     _rsm2 = rsm2;
     
@@ -61,8 +63,12 @@ class P3MForceSolver
     Kokkos::fence();
   }
 
-  void updateVel(AoSoAType& aosoa_device, const float c, float rmax2, float rsm2)
+  void updateVel(AoSoAType& aosoa_device)
   {
+    auto c = _c;
+    auto rmax2 = _rmax2;
+    auto rsm2 = _rsm2;
+
     auto position = Cabana::slice<Field::Position>(aosoa_device, "position");
     auto velocity = Cabana::slice<Field::Velocity>(aosoa_device, "velocity");
     auto force = Cabana::slice<Field::Force>(aosoa_device, "force");

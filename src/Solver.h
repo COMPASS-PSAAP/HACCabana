@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "HACCabana_Config.h"
+
 #include <Kokkos_Core.hpp>
 
 #include "Definitions.h"
@@ -42,11 +44,11 @@ class Solver
         
     }
 
-    void setup(const int config_flag, const std::string& configuration_filename)
+    void setup(const int config_flag, const std::string& configuration_filename, const std::size_t num_particles)
     {
         if (config_flag)
         {
-            _parameters.load_from_file(configuration_filename);
+            _parameters.load_from_file(configuration_filename, num_particles);
         }
         _timestepper = std::make_unique<timestepper_type>(
                 _parameters.alpha,

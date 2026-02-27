@@ -112,7 +112,7 @@ class ParticleActions
 
             // kick
             double tmp = mytime();
-            _force_solver.updateVel(aosoa_device, c, rmax2, rsm2);
+            _force_solver.updateVel(aosoa_device);
             kick_time += mytime() - tmp;
 
             //half stream
