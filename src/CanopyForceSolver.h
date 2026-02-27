@@ -12,9 +12,9 @@ class CanopyForceSolver
   // Variables needed for Canopy
   using memory_space = typename AoSoAType::memory_space;
   using execution_space = typename AoSoAType::execution_space;
-  using MD = Canopy::ParticleMetadata<AoSoAType, Field::Position, Field::Gravity, Field::Potential, Field::Force>; 
-  static constexpr num_coefficients = 6;
-  std::shared_ptr<Canopy::Solver<execution_space, memory_space, MD,
+  using MD = Canopy::ParticleMetadata<AoSoAType, float, Field::Position, Field::Gravity, Field::Potential, Field::Force>; 
+  static constexpr int num_coefficients = 6;
+  std::shared_ptr<Canopy::Solver<memory_space, execution_space, MD,
                                  2, num_coefficients>> _solver;
   
   size_t _begin, _end;
@@ -38,19 +38,19 @@ class CanopyForceSolver
     _rmax2 = rmax2;
     _rsm2 = rsm2;
     
-    float dx = cm_size;
+    // float dx = cm_size;
     float x_min = min_pos;
     float x_max = max_pos;
 
-    float grid_delta[3] = {dx, dx, dx};
-    float grid_min[3] = {x_min, x_min, x_min};
-    float grid_max[3] = {x_max, x_max, x_max};
+    // float grid_delta[3] = {dx, dx, dx};
+    std::array<float, 3> grid_min = {x_min, x_min, x_min};
+    std::array<float, 3> grid_max = {x_max, x_max, x_max};
 
     // FMM parameters
     const int leaf_tiles = 64;
     const int reduction_factor = 2;
 
-    _solver = Canopy::createSolver<execution_space, memory_space, MD, 2, num_coefficients>
+    _solver = Canopy::createSolver<memory_space, execution_space, MD, 2, num_coefficients>
         (grid_min, grid_max, leaf_tiles, reduction_factor, MPI_COMM_WORLD);
   }
 
