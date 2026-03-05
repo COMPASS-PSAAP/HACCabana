@@ -64,9 +64,6 @@ class CanopyForceSolver
     auto velocity = Cabana::slice<Field::Velocity>(aosoa_device, "velocity");
     auto force = Cabana::slice<Field::Force>(aosoa_device, "force");
 
-    
-    auto position = Cabana::slice<Field::Position>(aosoa_device, "position");
-    
     auto c = _c;
     auto vector_kick = KOKKOS_LAMBDA(const int s, const int a)
     {
