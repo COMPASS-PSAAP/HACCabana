@@ -43,7 +43,7 @@ class P3MForceSolver
                       const float rmax2, const float rsm2)
   {
     _begin = begin;
-    _end = _end;
+    _end = end;
     _c = c;
     _rmax2 = rmax2;
     _rsm2 = rsm2;

@@ -33,7 +33,7 @@ class CanopyForceSolver
                       const float rmax2, const float rsm2)
   {
     _begin = begin;
-    _end = _end;
+    _end = end;
     _c = c;
     _rmax2 = rmax2;
     _rsm2 = rsm2;
@@ -47,8 +47,8 @@ class CanopyForceSolver
     std::array<float, 3> grid_max = {x_max, x_max, x_max};
 
     // FMM parameters
-    const int leaf_tiles = 64;
-    const int reduction_factor = 2;
+    const int leaf_tiles = 16;
+    const int reduction_factor = 4;
 
     _solver = Canopy::createSolver<memory_space, execution_space, MD, 2, num_coefficients>
         (grid_min, grid_max, leaf_tiles, reduction_factor, MPI_COMM_WORLD);
