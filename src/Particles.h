@@ -1,6 +1,7 @@
 #ifndef PARTICLES_H
 #define PARTICLES_H
 
+#include <fstream>
 #include <string>
 
 #include <Cabana_Core.hpp>
