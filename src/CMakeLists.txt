@@ -7,12 +7,10 @@ set(HACCABANA_HEADERS
   ForceSolvers.h
   Parameters.h
   ParticleActions.h
-  ParticleActions_impl.h
   Particles.h
   Particle_impl.h
   TimeStepper.h
   Solver.h
-  Solver_impl.h
 )
 
 if(HACCabana_ENABLE_CANOPY)
