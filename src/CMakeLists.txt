@@ -8,7 +8,6 @@ set(HACCABANA_HEADERS
   Parameters.h
   ParticleActions.h
   Particles.h
-  Particle_impl.h
   TimeStepper.h
   Solver.h
 )
