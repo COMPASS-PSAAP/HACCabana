@@ -32,6 +32,8 @@ class CanopyForceSolver
                       const float min_pos, const float max_pos,
                       const float rmax2, const float rsm2)
   {
+    printf("Solving with Canopy...\n");
+    
     _begin = begin;
     _end = end;
     _c = c;
