@@ -33,7 +33,7 @@ class CanopyForceSolver
                       const float rmax2, const float rsm2)
   {
     printf("Solving with Canopy...\n");
-    
+
     _begin = begin;
     _end = end;
     _c = c;
@@ -58,7 +58,6 @@ class CanopyForceSolver
 
   void updateVel(AoSoAType& aosoa_device)
   {
-    printf("Solving with Canopy\n");
     // Solve for force
     _solver->solve(aosoa_device, 1);
 
