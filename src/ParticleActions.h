@@ -12,13 +12,13 @@
 
 #include <sys/time.h>
 
-// #ifdef HACCabana_ENABLE_CANOPY
+#ifdef HACCabana_ENABLE_CANOPY
 template<class AoSoAType, class Field>
 using DefaultForceSolverType = CanopyForceSolver<AoSoAType, Field>;
 #else
 template<class AoSoAType, class Field>
 using DefaultForceSolverType = P3MForceSolver<AoSoAType, Field>;
-// #endif
+#endif
 
 double mytime() {
   timeval tv;
