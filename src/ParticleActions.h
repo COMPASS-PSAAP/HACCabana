@@ -122,6 +122,7 @@ class ParticleActions
         std::cout << "kick time " << kick_time << std::endl;
 
         // copy GPU particles back to host
+        P->aosoa_host.resize(aosoa_device.size());
         Cabana::deep_copy(P->aosoa_host, aosoa_device);
     }
 

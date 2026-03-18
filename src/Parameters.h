@@ -50,7 +50,7 @@ namespace HACCabana
       Parameters();
       ~Parameters();
 
-      void load_from_file(std::string file_name, const std::size_t num_particles);
+      void load_from_file(std::string file_name, const std::size_t num_particles, const int num_substeps);
 
     private:
       std::map<std::string, std::string> m_params;

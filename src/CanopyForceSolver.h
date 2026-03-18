@@ -40,11 +40,12 @@ class CanopyForceSolver
     _rmax2 = rmax2;
     _rsm2 = rsm2;
     
-    // float dx = cm_size;
-    float x_min = min_pos;
-    float x_max = max_pos;
-
-    // float grid_delta[3] = {dx, dx, dx};
+    float dx = cm_size;
+    float x_min = min_pos - dx;
+    float x_max = max_pos + dx;
+    
+    // Min and max positions must be buffered slightly to avoid cell centers that
+    // are out of domain bounds.
     std::array<float, 3> grid_min = {x_min, x_min, x_min};
     std::array<float, 3> grid_max = {x_max, x_max, x_max};
 
@@ -61,6 +62,10 @@ class CanopyForceSolver
     // Solve for force
     _solver->solve(aosoa_device, 1);
 
+    // AoSoA is resized when particles migrate between ranks.
+    // Resize to number of owned particles
+    // aosoa_device.resize(_solver->numOwnedParticles());
+    
     // Update velocity
     auto velocity = Cabana::slice<Field::Velocity>(aosoa_device, "velocity");
     auto force = Cabana::slice<Field::Force>(aosoa_device, "force");

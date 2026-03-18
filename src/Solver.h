@@ -44,11 +44,12 @@ class Solver
         
     }
 
-    void setup(const int config_flag, const std::string& configuration_filename, const std::size_t num_particles)
+    void setup(const int config_flag, const std::string& configuration_filename, const std::size_t num_particles,
+        const int num_substeps)
     {
         if (config_flag)
         {
-            _parameters.load_from_file(configuration_filename, num_particles);
+            _parameters.load_from_file(configuration_filename, num_particles, num_substeps);
         }
         _timestepper = std::make_unique<timestepper_type>(
                 _parameters.alpha,
