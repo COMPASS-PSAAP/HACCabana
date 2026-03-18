@@ -12,13 +12,13 @@
 
 #include <sys/time.h>
 
-// #ifdef HACCabana_ENABLE_CANOPY
-// template<class AoSoAType, class Field>
-// using DefaultForceSolverType = CanopyForceSolver<AoSoAType, Field>;
-// #else
+#ifdef HACCabana_ENABLE_CANOPY
+template<class AoSoAType, class Field>
+using DefaultForceSolverType = CanopyForceSolver<AoSoAType, Field>;
+#else
 template<class AoSoAType, class Field>
 using DefaultForceSolverType = P3MForceSolver<AoSoAType, Field>;
-// #endif
+#endif
 
 double mytime() {
   timeval tv;
@@ -122,6 +122,7 @@ class ParticleActions
         std::cout << "kick time " << kick_time << std::endl;
 
         // copy GPU particles back to host
+        P->aosoa_host.resize(aosoa_device.size());
         Cabana::deep_copy(P->aosoa_host, aosoa_device);
     }
 

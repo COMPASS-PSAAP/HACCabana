@@ -51,6 +51,7 @@ int main( int argc, char* argv[] )
   int timestep_flag = 0;        // timstep to advance to (required)
   int config_flag = 0;          // configuration file (optional)
   std::size_t num_particles = 0;
+  int num_substeps = 0;
   std::string input_filename = "";
   std::string verification_filename = "";
   char* t_value = NULL;
@@ -58,7 +59,7 @@ int main( int argc, char* argv[] )
   int c;
   opterr = 0;
 
-  while ((c = getopt (argc, argv, "i:v:st:c:x:p:")) != -1)
+  while ((c = getopt (argc, argv, "i:v:dt:c:p:s:")) != -1)
     switch (c)
     {
       case 'i':
@@ -69,7 +70,7 @@ int main( int argc, char* argv[] )
         verification_flag = 1;
         verification_filename = optarg;
         break;
-      case 's':
+      case 'd':
         synthetic_data_flag = 1;
         break;
       case 't':
@@ -83,8 +84,11 @@ int main( int argc, char* argv[] )
       case 'p':
         num_particles = std::stoi(optarg);
         break;
+      case 's':
+        num_substeps = std::stoi(optarg);
+        break;
       case '?':
-        if (optopt == 'i' || optopt == 'v' || optopt == 't' || optopt == 'c' || optopt == 'p' )
+        if (optopt == 'i' || optopt == 'v' || optopt == 't' || optopt == 'c' || optopt == 'p' || optopt == 's' )
           fprintf (stderr, "Option -%c requires an argument.\n", optopt);
         else
           fprintf (stderr, "Unknown option `-%c'.\n", optopt);
@@ -114,7 +118,7 @@ int main( int argc, char* argv[] )
   }
 
   auto solver = HACCabana::createSolver<MemorySpace, ExecutionSpace>(step0);
-  solver->setup(config_flag, configuration_filename, num_particles);
+  solver->setup(config_flag, configuration_filename, num_particles, num_substeps);
   solver->advance();
   solver->setupParticles(input_flag, input_filename);
   solver->subCycle();
