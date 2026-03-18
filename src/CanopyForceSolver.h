@@ -59,12 +59,17 @@ class CanopyForceSolver
 
   void updateVel(AoSoAType& aosoa_device)
   {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     // Solve for force
-    _solver->solve(aosoa_device, 1);
-
+    _solver->solve(aosoa_device, 0);
+    _solver->reset();
+    
     // AoSoA is resized when particles migrate between ranks.
     // Resize to number of owned particles
-    // aosoa_device.resize(_solver->numOwnedParticles());
+    // printf("R%d: num owned particles: %d\n", rank, _solver->numOwnedParticles());
+    aosoa_device.resize(_solver->numOwnedParticles());
+    
     
     // Update velocity
     auto velocity = Cabana::slice<Field::Velocity>(aosoa_device, "velocity");

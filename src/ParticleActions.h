@@ -60,6 +60,9 @@ class ParticleActions
     void subCycle(TimeStepper &ts, const int nsub, const float gpscal, const float rmax2, const float rsm2, 
         const float cm_size, const float min_pos, const float max_pos)
     {
+        int rank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
         // copy particles to GPU
         aosoa_type aosoa_device("aosoa_device", P->num_p);
         Cabana::deep_copy(aosoa_device, P->aosoa_host);
@@ -117,6 +120,13 @@ class ParticleActions
 
             //half stream
             this->updatePos(aosoa_device, prefactor*tau*0.5);
+
+            auto position = Cabana::slice<Field::Position>(aosoa_device, "position");
+            for (std::size_t i = 0; i < aosoa_device.size(); i++)
+            {
+            printf("R%d: p(%.2lf, %.2lf, %.2lf)\n", rank,
+                position(i, 0),position(i, 1), position(i, 2));
+            }
         }
 
         std::cout << "kick time " << kick_time << std::endl;

@@ -58,8 +58,17 @@ public:
 
     void generateData(const int np, const float rl, const float ol, const float mean_vel)
     {
-        num_p = np*np*np;
+        int rank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+        // Only rank 0 generate data
+        num_p = 0;
+        this->end = 0;
         aosoa_host = aosoa_host_type("aosoa_host", num_p);
+        if (rank == 0)
+        {
+        num_p = np*np*np;
+        aosoa_host.resize(num_p);
 
         auto id = Cabana::slice<Field::ParticleID>(aosoa_host, "id");
         auto position = Cabana::slice<Field::Position>(aosoa_host, "position");
@@ -67,8 +76,8 @@ public:
         const float delta = rl/np;  // inter-particle spacing
 
         // generate data from a grid and offset from a normal random distribution
-        std::random_device rd{};
-        std::mt19937 gen{rd()};
+        // std::random_device rd{};
+        std::mt19937 gen{12345};
         std::normal_distribution<float> d1{0.0, 0.05}; // mu=0.0 sigma=0.05
 
         float min_pos[3];
@@ -111,6 +120,8 @@ public:
         std::cout << "\t" << num_p << " particles\n" <<
             "\tmin[" << min_pos[0] << "," << min_pos[1] << "," << min_pos[2] << 
             "] max["<< max_pos[0] << "," << max_pos[1] << "," << max_pos[2] << "]" << std::endl;
+        }
+        printf("R%d: np: %d\n", rank, num_p);
     }
 
     void readRawData(std::string file_name) 
