@@ -188,10 +188,12 @@ int main( int argc, char* argv[] )
 
   cout << "\tExcluding boundary cells of Linked Cell List.\n\tPrinting all particles within [" << parameters.oL+dx_boundary << "," << parameters.rL+parameters.oL-dx_boundary << ")" << endl;
 
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   int num_p = solver->num_p();
   using Field = typename HACCabana::Solver<MemorySpace, ExecutionSpace>::particles_type::Field;
   cout << "\nPrinting result for " << num_p << " particles."  << endl;
-  auto particles_h = solver->particles();
+  auto particles_h = Cabana::create_mirror_view_and_copy(Kokkos::HostSpace(), solver->data());
   auto particle_id = Cabana::slice<Field::ParticleID>( particles_h, "particle_id" );
   auto sort_data = Cabana::sortByKey( particle_id );
   Cabana::permute( sort_data, particles_h );
@@ -205,7 +207,7 @@ int main( int argc, char* argv[] )
         position(i,1) <  max_alive_pos-dx_boundary &&\
         position(i,2) <  max_alive_pos-dx_boundary)
     {
-      printf("P%d: pos %.2lf, %.2lf, %.2lf\n", i, position(i, 0), position(i, 1), position(i, 2));
+      printf("R%d: P%d: pos %.2lf, %.2lf, %.2lf\n", rank, i, position(i, 0), position(i, 1), position(i, 2));
     }
   }
   // verify against the answer from the simulation
@@ -215,7 +217,7 @@ int main( int argc, char* argv[] )
   {
     using Field = typename HACCabana::Solver<MemorySpace, ExecutionSpace>::particles_type::Field;
     cout << "\nVerifying result." << endl;
-    auto particles_h = solver->particles();
+    auto particles_h = solver->data();
     auto particle_id = Cabana::slice<Field::ParticleID>( particles_h, "particle_id" );
     auto sort_data = Cabana::sortByKey( particle_id );
 
@@ -227,7 +229,7 @@ int main( int argc, char* argv[] )
     // P_ans.readRawData(verification_filename);
 
     Cabana::permute( sort_data, particles_h );
-    auto particles_ans_h = solver_ans->particles();
+    auto particles_ans_h = solver_ans->data();
     auto particle_id_ans = Cabana::slice<Field::ParticleID>( particles_ans_h, "particle_id_ans" );
     auto sort_data_ans = Cabana::sortByKey( particle_id_ans );
     Cabana::permute( sort_data_ans, particles_ans_h );

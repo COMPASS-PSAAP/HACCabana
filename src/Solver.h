@@ -110,7 +110,7 @@ class Solver
     }
 
     Parameters parameters() {return _parameters;}
-    aosoa_host_type particles() {return _particles.aosoa_host;}
+    aosoa_host_type data() {return _particles.aosoa_host;}
     int num_p() {return _particles.num_p;}
 
   private:

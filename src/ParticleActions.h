@@ -118,15 +118,16 @@ class ParticleActions
             _force_solver.updateVel(aosoa_device);
             kick_time += mytime() - tmp;
 
+            // auto position = Cabana::slice<Field::Position>(aosoa_device, "position");
+            // printf("R%d: step%d: aosoa size: %d\n", rank, step, aosoa_device.size());
+            // for (std::size_t i = 0; i < aosoa_device.size(); i++)
+            // {
+            // printf("R%d: step%d p(%.2lf, %.2lf, %.2lf)\n", rank, step,
+            //     position(i, 0),position(i, 1), position(i, 2));
+            // }
+
             //half stream
             this->updatePos(aosoa_device, prefactor*tau*0.5);
-
-            auto position = Cabana::slice<Field::Position>(aosoa_device, "position");
-            for (std::size_t i = 0; i < aosoa_device.size(); i++)
-            {
-            printf("R%d: step%d p(%.2lf, %.2lf, %.2lf)\n", rank, step,
-                position(i, 0),position(i, 1), position(i, 2));
-            }
         }
 
         std::cout << "kick time " << kick_time << std::endl;
