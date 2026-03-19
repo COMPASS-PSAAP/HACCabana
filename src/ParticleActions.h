@@ -124,7 +124,7 @@ class ParticleActions
             auto position = Cabana::slice<Field::Position>(aosoa_device, "position");
             for (std::size_t i = 0; i < aosoa_device.size(); i++)
             {
-            printf("R%d: p(%.2lf, %.2lf, %.2lf)\n", rank,
+            printf("R%d: step%d p(%.2lf, %.2lf, %.2lf)\n", rank, step,
                 position(i, 0),position(i, 1), position(i, 2));
             }
         }
