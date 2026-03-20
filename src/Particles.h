@@ -30,10 +30,6 @@ public:
     using aosoa_type = Cabana::AoSoA<member_types, memory_space, VECTOR_LENGTH>;
     using aosoa_host_type = Cabana::AoSoA<member_types, Kokkos::HostSpace, VECTOR_LENGTH>;
 
-    size_t num_p = 0;
-    size_t begin = 0;
-    size_t end = 0;
-    aosoa_type aosoa;
     aosoa_host_type aosoa_host;
 
     Particles() {}
@@ -48,7 +44,7 @@ public:
         const float phys2grid_pos = ng/rL;
         const float phys2grid_vel = phys2grid_pos/100.0;
         const float scaling = phys2grid_vel*a*a;
-        for (int i=0; i<num_p; ++i)
+        for (int i=0; i<aosoa_host.size(); ++i)
         {
             for (int j=0; j<3; ++j) {
             velocity(i,j) *= scaling;
@@ -62,8 +58,7 @@ public:
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
         // Only rank 0 generate data
-        num_p = 0;
-        this->end = 0;
+        int num_p = 0;
         aosoa_host = aosoa_host_type("aosoa_host", num_p);
         if (rank == 0)
         {
@@ -114,19 +109,17 @@ public:
             gravity(i) = 1.0;
         }
 
-        this->begin = 0;
-        this->end = num_p;
-
         std::cout << "\t" << num_p << " particles\n" <<
             "\tmin[" << min_pos[0] << "," << min_pos[1] << "," << min_pos[2] << 
             "] max["<< max_pos[0] << "," << max_pos[1] << "," << max_pos[2] << "]" << std::endl;
         }
-        printf("R%d: np: %d\n", rank, num_p);
     }
 
     void readRawData(std::string file_name) 
     {
         std::ifstream infile(file_name, std::ifstream::binary);
+
+        int num_p;
 
         // the first int has the number of particles
         infile.read((char*)&num_p, sizeof(int));
@@ -175,9 +168,6 @@ public:
 
         infile.close();
 
-        this->begin = 0;
-        this->end = num_p;
-
         std::cout << "\t" << num_p << " particles\n" << 
             "\tmin[" << min_pos[0] << "," << min_pos[1] << "," << min_pos[2] << "] " << 
             "max["<< max_pos[0] << "," << max_pos[1] << "," << max_pos[2] << "]" << std::endl;
@@ -189,9 +179,11 @@ public:
         auto position = Cabana::slice<Field::Position>(aosoa_host, "position");
         auto velocity = Cabana::slice<Field::Velocity>(aosoa_host, "velocity");
 
+        auto end = aosoa_host.size();
+
         // Relocate any particle outside of the boundary to the end of the 
-        // aosoa -- outside particles start at this->end until the end of the aosoa.
-        for (int i=this->begin; i<this->end; ++i) {
+        // aosoa -- outside particles start at end until the end of the aosoa.
+        for (int i=0; i<end; ++i) {
             if (position(i,0) < min_pos || position(i,1) < min_pos || position(i,2) < min_pos ||
                 position(i,0) >= max_pos || position(i,1) >= max_pos || position(i,2) >= max_pos)
             {
@@ -199,17 +191,17 @@ public:
             {
                 float tmp;
                 tmp = position(i,j);
-                position(i,j) = position(this->end-1,j);
-                position(this->end-1,j) = tmp;
+                position(i,j) = position(end-1,j);
+                position(end-1,j) = tmp;
                 tmp = velocity(i,j);
-                velocity(i,j) = velocity(this->end-1,j);
-                velocity(this->end-1,j) = tmp;
+                velocity(i,j) = velocity(end-1,j);
+                velocity(end-1,j) = tmp;
             }
             int64_t tmp2 = id(i);
-            id(i) = id(this->end-1);
-            id(this->end-1) = tmp2;
+            id(i) = id(end-1);
+            id(end-1) = tmp2;
 
-            --this->end;
+            --end;
             --i;
             }
         }

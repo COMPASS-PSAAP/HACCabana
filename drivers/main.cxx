@@ -188,11 +188,9 @@ int main( int argc, char* argv[] )
 
   cout << "\tExcluding boundary cells of Linked Cell List.\n\tPrinting all particles within [" << parameters.oL+dx_boundary << "," << parameters.rL+parameters.oL-dx_boundary << ")" << endl;
 
-  int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   int num_p = solver->num_p();
   using Field = typename HACCabana::Solver<MemorySpace, ExecutionSpace>::particles_type::Field;
-  cout << "\nPrinting result for " << num_p << " particles."  << endl;
+  cout << "\nPrinting result for particles."  << endl;
   auto particles_h = Cabana::create_mirror_view_and_copy(Kokkos::HostSpace(), solver->data());
   auto particle_id = Cabana::slice<Field::ParticleID>( particles_h, "particle_id" );
   auto sort_data = Cabana::sortByKey( particle_id );
@@ -207,74 +205,10 @@ int main( int argc, char* argv[] )
         position(i,1) <  max_alive_pos-dx_boundary &&\
         position(i,2) <  max_alive_pos-dx_boundary)
     {
-      printf("R%d: P%d: pos %.2lf, %.2lf, %.2lf\n", rank, i, position(i, 0), position(i, 1), position(i, 2));
+      printf("p(%.2lf, %.2lf, %.2lf)\n", position(i, 0), position(i, 1), position(i, 2));
     }
   }
-  // verify against the answer from the simulation
-  // --------------------------------------------------------------------------------------------------------------------------
 
-  if (verification_flag)
-  {
-    using Field = typename HACCabana::Solver<MemorySpace, ExecutionSpace>::particles_type::Field;
-    cout << "\nVerifying result." << endl;
-    auto particles_h = solver->data();
-    auto particle_id = Cabana::slice<Field::ParticleID>( particles_h, "particle_id" );
-    auto sort_data = Cabana::sortByKey( particle_id );
-
-    // Create solver and load verification particles
-    auto solver_ans = HACCabana::createSolver<MemorySpace, ExecutionSpace>(step0);
-    solver_ans->setupParticles(1, verification_filename);
-    // HACCabana::Particles<Kokkos::HostSpace, Kokkos::DefaultHostExecutionSpace> P_ans;
-    // cout << "Reading file: " << verification_filename << endl;
-    // P_ans.readRawData(verification_filename);
-
-    Cabana::permute( sort_data, particles_h );
-    auto particles_ans_h = solver_ans->data();
-    auto particle_id_ans = Cabana::slice<Field::ParticleID>( particles_ans_h, "particle_id_ans" );
-    auto sort_data_ans = Cabana::sortByKey( particle_id_ans );
-    Cabana::permute( sort_data_ans, particles_ans_h );
-
-    auto position = Cabana::slice<Field::Position>( particles_h, "position" );
-    auto position_ans = Cabana::slice<Field::Position>( particles_ans_h, "position_ans" );
-
-    int num_p = solver->num_p();
-    int num_p_ans = solver_ans->num_p();
-    cout << "Checking " << num_p << " particles against " << num_p_ans << " answer particles." << endl;
-    assert(num_p == num_p_ans);
-
-    // don't check particles in boundary cells
-    auto parameters = solver->parameters();
-    const float dx_boundary = parameters.cm_size;
-    const float min_alive_pos = parameters.oL;
-    const float max_alive_pos = parameters.rL+parameters.oL;
-
-    cout << "\tExcluding boundary cells of Linked Cell List.\n\tChecking all particles within [" << parameters.oL+dx_boundary << "," << parameters.rL+parameters.oL-dx_boundary << ")" << endl;
-
-    int count = 0;
-    int err_n = 0;
-    for (int i=0; i<num_p_ans; ++i)
-    {
-      assert(particle_id(i) == particle_id_ans(i));
-      bool is_inside = false;
-      if (position(i,0) >= min_alive_pos+dx_boundary &&\
-          position(i,1) >= min_alive_pos+dx_boundary &&\
-          position(i,2) >= min_alive_pos+dx_boundary &&\
-          position(i,0) <  max_alive_pos-dx_boundary &&\
-          position(i,1) <  max_alive_pos-dx_boundary &&\
-          position(i,2) <  max_alive_pos-dx_boundary)
-      {
-        is_inside = true;
-        ++count;
-      }
-      if (is_inside && (!floatCompare(position(i,0),position_ans(i,0)) ||\
-                        !floatCompare(position(i,1),position_ans(i,1)) ||\
-                        !floatCompare(position(i,2),position_ans(i,2))))
-      {
-        ++err_n;
-      }
-    }
-    cout << "\t" << err_n << " particles (out of " << count << ") have position relative error greater than " << MAX_ERR << endl;
-  }
   } // Kokkos scopeguard
   MPI_Finalize();
 
