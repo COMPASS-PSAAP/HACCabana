@@ -31,7 +31,11 @@ class CanopyForceSolver
                       const float min_pos, const float max_pos,
                       const float rmax2, const float rsm2)
   {
-    printf("Solving with Canopy...\n");
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    if (rank == 0)
+      printf("Solving with Canopy...\n");
 
     _c = c;
     _rmax2 = rmax2;

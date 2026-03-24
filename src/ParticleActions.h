@@ -60,6 +60,9 @@ class ParticleActions
     void subCycle(TimeStepper &ts, const int nsub, const float gpscal, const float rmax2, const float rsm2, 
         const float cm_size, const float min_pos, const float max_pos)
     {
+        int rank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
         // copy particles to GPU
         auto aosoa_device = std::make_shared<aosoa_type>("aosoa_device", P->aosoa_host.size());
         Cabana::deep_copy(*aosoa_device, P->aosoa_host);
@@ -105,7 +108,8 @@ class ParticleActions
         // SKS subcycles
         for(int step=0; step < nsub; ++step) 
         {
-            std::cout << "Doing substep " << step << std::endl;
+            if (rank == 0)
+                std::cout << "Doing substep " << step << std::endl;
 
             //half stream
             this->updatePos(aosoa_device, prefactor*tau*0.5);
@@ -127,7 +131,7 @@ class ParticleActions
             this->updatePos(aosoa_device, prefactor*tau*0.5);
         }
 
-        std::cout << "kick time " << kick_time << std::endl;
+        std::cout << "Rank " << rank << ": kick time " << kick_time << std::endl;
 
         // copy GPU particles back to host
         P->aosoa_host.resize(aosoa_device->size());
