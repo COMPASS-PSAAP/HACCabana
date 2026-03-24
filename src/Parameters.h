@@ -17,7 +17,7 @@ namespace HACCabana
 
       // simulation and cosmology params
       int ng;
-      int np;
+      std::size_t np;
       float rL;
       float oL;
       int nsteps;
@@ -50,7 +50,7 @@ namespace HACCabana
       Parameters();
       ~Parameters();
 
-      void load_from_file(std::string file_name);
+      void load_from_file(std::string file_name, const std::size_t num_particles, const int num_substeps);
 
     private:
       std::map<std::string, std::string> m_params;

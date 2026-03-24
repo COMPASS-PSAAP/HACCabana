@@ -67,7 +67,7 @@ TimeStepper::TimeStepper(TS_FLOAT alpha_,
 			 TS_FLOAT f_nu_massless_,
 			 TS_FLOAT f_nu_massive_,
 			 TS_FLOAT w_,
-                         TS_FLOAT wa_) :
+       TS_FLOAT wa_) :
   m_aa(-1.0),
   m_pp(-1.0),
   m_zz(-1.0),

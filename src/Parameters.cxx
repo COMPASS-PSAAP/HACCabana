@@ -36,7 +36,8 @@ Parameters::~Parameters()
   ;
 }
 
-void Parameters::load_from_file(std::string file_name)
+void Parameters::load_from_file(std::string file_name, const std::size_t num_particles = 0,
+  const int num_substeps = 0)
 {
   m_params.clear();
 
@@ -93,11 +94,11 @@ void Parameters::load_from_file(std::string file_name)
   }
 
   ng = atoi(m_params["NG"].c_str());
-  np = atoi(m_params["NP"].c_str());
+  np = (num_particles > 0) ? static_cast<std::size_t>(std::cbrt(num_particles)) : atoi(m_params["NP"].c_str());
   rL = atof(m_params["RL"].c_str());
   oL = atof(m_params["OL"].c_str());
   nsteps = atoi(m_params["N_STEPS"].c_str());
-  nsub = atoi(m_params["N_SUB"].c_str());
+  nsub = (num_substeps < 0) ? atoi(m_params["N_SUB"].c_str()) : num_substeps;
   //rmax(3.116326355),
   rsm = atof(m_params["RSM"].c_str());
   z_in = atof(m_params["Z_IN"].c_str());
