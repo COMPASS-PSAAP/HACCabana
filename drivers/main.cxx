@@ -102,7 +102,7 @@ int main( int argc, char* argv[] )
   }
   if (input_flag && synthetic_data_flag || verification_flag && synthetic_data_flag) 
   {
-    cout << "Incompatable options!" << endl;
+    cout << "Incompatible options!" << endl;
     return 1;
   }
 
@@ -123,75 +123,18 @@ int main( int argc, char* argv[] )
   solver->setupParticles(input_flag, input_filename);
   solver->subCycle();
 
-  // simulation and cosmology params
-  // loads default
-  // HACCabana::Parameters Params;
-
-  // if (config_flag)
-  // {
-  //   Params.load_from_file(configuration_filename);
-  // }
-
-  // TimeStepper ts(
-  //    Params.alpha,
-	// 	 Params.a_in,
-	// 	 Params.a_fin,
-	// 	 Params.nsteps,
-	// 	 Params.omega_matter,
-	// 	 Params.omega_cdm,
-	// 	 Params.omega_baryon,
-	// 	 Params.omega_cb,
-	// 	 Params.omega_nu,
-	// 	 Params.omega_radiation,
-	// 	 Params.f_nu_massless,
-	// 	 Params.f_nu_massive,
-	// 	 Params.w_de,
-  //    Params.wa_de);
-  
-  // cout << "Advancing timestepper to step " << step0 << endl;
-  // // get timestepper up to speed
-  // for (int step = 0; step < step0; step++)
-  //   ts.advanceFullStep();
-
-  // // we're starting to subcycle after a PM kick
-  // ts.advanceHalfStep();
-
-  // // Setup particle data 
-  // HACCabana::Particles P;
-
-  // const float min_alive_pos = Params.oL;
-  // const float max_alive_pos = Params.rL+Params.oL;
-
-  // if (input_flag)
-  // {
-  //   cout << "Reading file: " << input_filename << endl;
-  //   P.readRawData(input_filename);
-  // }
-  // else if (synthetic_data_flag)
-  // {
-  //   cout << "Generating synthetic data in range [" << min_alive_pos << "," << max_alive_pos << "] " 
-  //        << "rL=" << Params.rL << " oL=" << Params.oL << endl;
-  //   P.generateData(Params.np, Params.rL, Params.oL, MEAN_VEL);
-  //   P.convert_phys2grid(Params.ng, Params.rL, ts.aa());
-  // }
-
-  // P.reorder(min_alive_pos, max_alive_pos); // TODO:assumes local extent equals the global extent
-  // cout << "\t" << P.end-P.begin << " particles in [" << min_alive_pos << "," << max_alive_pos << "]" << endl;
-
-  // HACCabana::ParticleActions PA(&P);
-  // PA.subCycle(ts, Params.nsub, Params.gpscal, Params.rmax*Params.rmax, Params.rsm*Params.rsm, Params.cm_size, Params.oL, Params.rL+Params.oL);
   // don't check particles in boundary cells
   auto parameters = solver->parameters();
   const float dx_boundary = parameters.cm_size;
   const float min_alive_pos = parameters.oL;
   const float max_alive_pos = parameters.rL+parameters.oL;
 
-  cout << "\tExcluding boundary cells of Linked Cell List.\n\tPrinting all particles within [" << parameters.oL+dx_boundary << "," << parameters.rL+parameters.oL-dx_boundary << ")" << endl;
+  // cout << "\tExcluding boundary cells of Linked Cell List.\n\tPrinting all particles within [" << parameters.oL+dx_boundary << "," << parameters.rL+parameters.oL-dx_boundary << ")" << endl;
 
   int num_p = solver->num_p();
   using Field = typename HACCabana::Solver<MemorySpace, ExecutionSpace>::particles_type::Field;
-  cout << "\nPrinting result for " << num_p << " particles."  << endl;
-  auto particles_h = solver->particles();
+  cout << "\nPrinting final particle positions:"  << endl;
+  auto particles_h = Cabana::create_mirror_view_and_copy(Kokkos::HostSpace(), solver->data());
   auto particle_id = Cabana::slice<Field::ParticleID>( particles_h, "particle_id" );
   auto sort_data = Cabana::sortByKey( particle_id );
   Cabana::permute( sort_data, particles_h );
@@ -205,74 +148,10 @@ int main( int argc, char* argv[] )
         position(i,1) <  max_alive_pos-dx_boundary &&\
         position(i,2) <  max_alive_pos-dx_boundary)
     {
-      printf("P%d: pos %.2lf, %.2lf, %.2lf\n", i, position(i, 0), position(i, 1), position(i, 2));
+      printf("p(%.4lf, %.4lf, %.4lf)\n", position(i, 0), position(i, 1), position(i, 2));
     }
   }
-  // verify against the answer from the simulation
-  // --------------------------------------------------------------------------------------------------------------------------
 
-  if (verification_flag)
-  {
-    using Field = typename HACCabana::Solver<MemorySpace, ExecutionSpace>::particles_type::Field;
-    cout << "\nVerifying result." << endl;
-    auto particles_h = solver->particles();
-    auto particle_id = Cabana::slice<Field::ParticleID>( particles_h, "particle_id" );
-    auto sort_data = Cabana::sortByKey( particle_id );
-
-    // Create solver and load verification particles
-    auto solver_ans = HACCabana::createSolver<MemorySpace, ExecutionSpace>(step0);
-    solver_ans->setupParticles(1, verification_filename);
-    // HACCabana::Particles<Kokkos::HostSpace, Kokkos::DefaultHostExecutionSpace> P_ans;
-    // cout << "Reading file: " << verification_filename << endl;
-    // P_ans.readRawData(verification_filename);
-
-    Cabana::permute( sort_data, particles_h );
-    auto particles_ans_h = solver_ans->particles();
-    auto particle_id_ans = Cabana::slice<Field::ParticleID>( particles_ans_h, "particle_id_ans" );
-    auto sort_data_ans = Cabana::sortByKey( particle_id_ans );
-    Cabana::permute( sort_data_ans, particles_ans_h );
-
-    auto position = Cabana::slice<Field::Position>( particles_h, "position" );
-    auto position_ans = Cabana::slice<Field::Position>( particles_ans_h, "position_ans" );
-
-    int num_p = solver->num_p();
-    int num_p_ans = solver_ans->num_p();
-    cout << "Checking " << num_p << " particles against " << num_p_ans << " answer particles." << endl;
-    assert(num_p == num_p_ans);
-
-    // don't check particles in boundary cells
-    auto parameters = solver->parameters();
-    const float dx_boundary = parameters.cm_size;
-    const float min_alive_pos = parameters.oL;
-    const float max_alive_pos = parameters.rL+parameters.oL;
-
-    cout << "\tExcluding boundary cells of Linked Cell List.\n\tChecking all particles within [" << parameters.oL+dx_boundary << "," << parameters.rL+parameters.oL-dx_boundary << ")" << endl;
-
-    int count = 0;
-    int err_n = 0;
-    for (int i=0; i<num_p_ans; ++i)
-    {
-      assert(particle_id(i) == particle_id_ans(i));
-      bool is_inside = false;
-      if (position(i,0) >= min_alive_pos+dx_boundary &&\
-          position(i,1) >= min_alive_pos+dx_boundary &&\
-          position(i,2) >= min_alive_pos+dx_boundary &&\
-          position(i,0) <  max_alive_pos-dx_boundary &&\
-          position(i,1) <  max_alive_pos-dx_boundary &&\
-          position(i,2) <  max_alive_pos-dx_boundary)
-      {
-        is_inside = true;
-        ++count;
-      }
-      if (is_inside && (!floatCompare(position(i,0),position_ans(i,0)) ||\
-                        !floatCompare(position(i,1),position_ans(i,1)) ||\
-                        !floatCompare(position(i,2),position_ans(i,2))))
-      {
-        ++err_n;
-      }
-    }
-    cout << "\t" << err_n << " particles (out of " << count << ") have position relative error greater than " << MAX_ERR << endl;
-  }
   } // Kokkos scopeguard
   MPI_Finalize();
 

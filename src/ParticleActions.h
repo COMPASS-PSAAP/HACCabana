@@ -60,9 +60,12 @@ class ParticleActions
     void subCycle(TimeStepper &ts, const int nsub, const float gpscal, const float rmax2, const float rsm2, 
         const float cm_size, const float min_pos, const float max_pos)
     {
+        int rank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
         // copy particles to GPU
-        aosoa_type aosoa_device("aosoa_device", P->num_p);
-        Cabana::deep_copy(aosoa_device, P->aosoa_host);
+        auto aosoa_device = std::make_shared<aosoa_type>("aosoa_device", P->aosoa_host.size());
+        Cabana::deep_copy(*aosoa_device, P->aosoa_host);
 
         // ------------------------------------------------------------------------------------
         const double stepFraction = 1.0/nsub;
@@ -80,8 +83,8 @@ class ParticleActions
         const float prefactor = 1.0 / (ts.alpha() * ts.adot() * pf);
         float tau = ts.tau()*stepFraction;
 
-        _force_solver.setup_subcycle(aosoa_device,
-                      P->begin, P->end, c, cm_size,
+        _force_solver.setup_subcycle(*aosoa_device,
+                      c, cm_size,
                       min_pos, max_pos,
                       rmax2, rsm2);
 
@@ -105,7 +108,8 @@ class ParticleActions
         // SKS subcycles
         for(int step=0; step < nsub; ++step) 
         {
-            std::cout << "Doing substep " << step << std::endl;
+            if (rank == 0)
+                std::cout << "Doing substep " << step << std::endl;
 
             //half stream
             this->updatePos(aosoa_device, prefactor*tau*0.5);
@@ -115,23 +119,31 @@ class ParticleActions
             _force_solver.updateVel(aosoa_device);
             kick_time += mytime() - tmp;
 
+            // auto position = Cabana::slice<Field::Position>(aosoa_device, "position");
+            // printf("R%d: step%d: aosoa size: %d\n", rank, step, aosoa_device.size());
+            // for (std::size_t i = 0; i < aosoa_device.size(); i++)
+            // {
+            // printf("R%d: step%d p(%.2lf, %.2lf, %.2lf)\n", rank, step,
+            //     position(i, 0),position(i, 1), position(i, 2));
+            // }
+
             //half stream
             this->updatePos(aosoa_device, prefactor*tau*0.5);
         }
 
-        std::cout << "kick time " << kick_time << std::endl;
+        std::cout << "Rank " << rank << ": kick time " << kick_time << std::endl;
 
         // copy GPU particles back to host
-        P->aosoa_host.resize(aosoa_device.size());
-        Cabana::deep_copy(P->aosoa_host, aosoa_device);
+        P->aosoa_host.resize(aosoa_device->size());
+        Cabana::deep_copy(P->aosoa_host, *aosoa_device);
     }
 
-    void updatePos(aosoa_type aosoa_device, float prefactor)
+    void updatePos(std::shared_ptr<aosoa_type> aosoa_device, float prefactor)
     {
-        auto position = Cabana::slice<Field::Position>(aosoa_device, "position");
-        auto velocity = Cabana::slice<Field::Velocity>(aosoa_device, "velocity");
+        auto position = Cabana::slice<Field::Position>(*aosoa_device, "position");
+        auto velocity = Cabana::slice<Field::Velocity>(*aosoa_device, "velocity");
 
-        Kokkos::parallel_for("stream", Kokkos::RangePolicy<execution_space>(0, P->num_p),
+        Kokkos::parallel_for("stream", Kokkos::RangePolicy<execution_space>(0, aosoa_device->size()),
         KOKKOS_LAMBDA(const int i) {
             position(i,0) = position(i,0) + prefactor * velocity(i,0);
             position(i,1) = position(i,1) + prefactor * velocity(i,1);
@@ -141,12 +153,12 @@ class ParticleActions
     }
 
     template <class CellListType>
-    void updateVel(aosoa_type aosoa_device, CellListType cell_list,
+    void updateVel(std::shared_ptr<aosoa_type> aosoa_device, CellListType cell_list,
         const float c, const float rmax2, const float rsm2)
     {
-        auto position = Cabana::slice<Field::Position>(aosoa_device, "position");
-        auto velocity = Cabana::slice<Field::Velocity>(aosoa_device, "velocity");
-        auto bin_index = Cabana::slice<Field::BinIndex>(aosoa_device, "bin_index");
+        auto position = Cabana::slice<Field::Position>(*aosoa_device, "position");
+        auto velocity = Cabana::slice<Field::Velocity>(*aosoa_device, "velocity");
+        auto bin_index = Cabana::slice<Field::BinIndex>(*aosoa_device, "bin_index");
 
         Kokkos::parallel_for("copy_bin_index", Kokkos::RangePolicy<execution_space>(0, cell_list.totalBins()),
         KOKKOS_LAMBDA(const int i)
@@ -207,7 +219,7 @@ class ParticleActions
             velocity.access(s,a,2) += force[2] * c;
         };
 
-        Cabana::SimdPolicy<VECTOR_LENGTH, execution_space> simd_policy(P->begin, P->end);
+        Cabana::SimdPolicy<VECTOR_LENGTH, execution_space> simd_policy(0, aosoa_device->size());
         Cabana::simd_parallel_for( simd_policy, vector_kick, "kick" ); 
 
         Kokkos::fence();

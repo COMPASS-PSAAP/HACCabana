@@ -97,7 +97,7 @@ class Solver
         }
 
         _particles.reorder(min_alive_pos, max_alive_pos); // TODO:assumes local extent equals the global extent
-        std::cout << "\t" << _particles.end-_particles.begin << " particles in [" << min_alive_pos << "," << max_alive_pos << "]" << std::endl;
+        std::cout << "\t" << "xx" << " particles in [" << min_alive_pos << "," << max_alive_pos << "]" << std::endl;
     }
 
     void subCycle()
@@ -110,8 +110,8 @@ class Solver
     }
 
     Parameters parameters() {return _parameters;}
-    aosoa_host_type particles() {return _particles.aosoa_host;}
-    int num_p() {return _particles.num_p;}
+    aosoa_host_type data() {return _particles.aosoa_host;}
+    int num_p() {return _particles.aosoa_host.size();}
 
   private:
     const int _step0;

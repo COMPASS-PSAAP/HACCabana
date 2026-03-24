@@ -17,28 +17,30 @@ class CanopyForceSolver
   std::shared_ptr<Canopy::Solver<memory_space, execution_space, MD,
                                  2, num_coefficients>> _solver;
   
-  size_t _begin, _end;
   float _c;
   float _rmax2;
   float _rsm2;
+  int _step;
   
   public:
   CanopyForceSolver() {}
   ~CanopyForceSolver() {}
 
   void setup_subcycle(AoSoAType& aosoa_device,
-                      const size_t begin, const size_t end,
                       const float c, const float cm_size,
                       const float min_pos, const float max_pos,
                       const float rmax2, const float rsm2)
   {
-    printf("Solving with Canopy...\n");
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    _begin = begin;
-    _end = end;
+    if (rank == 0)
+      printf("Solving with Canopy...\n");
+
     _c = c;
     _rmax2 = rmax2;
     _rsm2 = rsm2;
+    _step = 0;
     
     float dx = cm_size;
     float x_min = min_pos - dx;
@@ -57,18 +59,14 @@ class CanopyForceSolver
         (grid_min, grid_max, leaf_tiles, reduction_factor, MPI_COMM_WORLD);
   }
 
-  void updateVel(AoSoAType& aosoa_device)
+  void updateVel(std::shared_ptr<AoSoAType> aosoa_device)
   {
     // Solve for force
-    _solver->solve(aosoa_device, 1);
-
-    // AoSoA is resized when particles migrate between ranks.
-    // Resize to number of owned particles
-    // aosoa_device.resize(_solver->numOwnedParticles());
-    
+    _solver->solve(aosoa_device, 0);
+        
     // Update velocity
-    auto velocity = Cabana::slice<Field::Velocity>(aosoa_device, "velocity");
-    auto force = Cabana::slice<Field::Force>(aosoa_device, "force");
+    auto velocity = Cabana::slice<Field::Velocity>(*aosoa_device, "velocity");
+    auto force = Cabana::slice<Field::Force>(*aosoa_device, "force");
 
     auto c = _c;
     auto vector_kick = KOKKOS_LAMBDA(const int s, const int a)
@@ -78,10 +76,12 @@ class CanopyForceSolver
         velocity.access(s,a,2) += force.access(s,a,0) * c;
     };
 
-    Cabana::SimdPolicy<VECTOR_LENGTH, execution_space> simd_policy(_begin, _end);
-    Cabana::simd_parallel_for( simd_policy, vector_kick, "kick" ); 
+    Cabana::SimdPolicy<VECTOR_LENGTH, execution_space> simd_policy(0, aosoa_device->size());
+    Cabana::simd_parallel_for( simd_policy, vector_kick, "kick" );
 
     Kokkos::fence();
+
+    _step++;
   }
 };
 
