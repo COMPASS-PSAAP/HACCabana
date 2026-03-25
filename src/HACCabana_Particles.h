@@ -6,7 +6,7 @@
 
 #include <Cabana_Core.hpp>
 
-#include "Definitions.h"
+#include "HACCabana_Definitions.h"
 
 namespace HACCabana
 {

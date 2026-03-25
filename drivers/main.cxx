@@ -3,10 +3,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <iostream>
+#include <numeric>
 #include <stdexcept>
+#include <vector>
 
-#include <Solver.h>
+#include <HACCabana_Solver.h>
 
 #include <mpi.h>
 
@@ -149,12 +152,17 @@ int main( int argc, char* argv[] )
   int num_p = solver->num_p();
   using Field = typename HACCabana::Solver<MemorySpace, ExecutionSpace>::particles_type::Field;
   cout << "\nPrinting final particle positions:"  << endl;
-  auto particles_h = Cabana::create_mirror_view_and_copy(Kokkos::HostSpace(), solver->data());
+  auto particles_h = solver->data();
   auto particle_id = Cabana::slice<Field::ParticleID>( particles_h, "particle_id" );
-  auto sort_data = Cabana::sortByKey( particle_id );
-  Cabana::permute( sort_data, particles_h );
   auto position = Cabana::slice<Field::Position>( particles_h, "position" );
-  for (int i=0; i<num_p; ++i)
+
+  std::vector<int> sorted_indices( num_p );
+  std::iota( sorted_indices.begin(), sorted_indices.end(), 0 );
+  std::sort( sorted_indices.begin(), sorted_indices.end(),
+             [&]( const int lhs, const int rhs )
+             { return particle_id( lhs ) < particle_id( rhs ); } );
+
+  for ( const int i : sorted_indices )
   {
     if (position(i,0) >= min_alive_pos+dx_boundary &&\
         position(i,1) >= min_alive_pos+dx_boundary &&\

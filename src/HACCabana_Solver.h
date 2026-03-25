@@ -11,11 +11,11 @@
 
 #include <Kokkos_Core.hpp>
 
-#include "Definitions.h"
-#include "Parameters.h"
-#include "Particles.h"
-#include "ParticleActions.h"
-#include "TimeStepper.h"
+#include "HACCabana_Definitions.h"
+#include "HACCabana_Parameters.h"
+#include "HACCabana_Particles.h"
+#include "HACCabana_ParticleActions.h"
+#include "HACCabana_TimeStepper.h"
 
 namespace HACCabana
 {

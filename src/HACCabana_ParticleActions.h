@@ -5,10 +5,10 @@
 
 #include <Cabana_Core.hpp>
 
-#include "Definitions.h"
-#include "TimeStepper.h"
-#include "Particles.h"
-#include "ForceSolvers.h"
+#include "HACCabana_Definitions.h"
+#include "HACCabana_TimeStepper.h"
+#include "HACCabana_Particles.h"
+#include "HACCabana_ForceSolvers.h"
 
 #include <sys/time.h>
 
