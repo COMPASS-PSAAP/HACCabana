@@ -5,6 +5,8 @@
 
 #include <Cabana_Core.hpp>
 
+#include "HACCabana_Definitions.h"
+
 // Polynomial long range force calculation
 KOKKOS_INLINE_FUNCTION
 float FGridEvalPoly(float r2)

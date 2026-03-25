@@ -5,6 +5,8 @@
 
 #include <Cabana_Core.hpp>
 
+#include "HACCabana_Definitions.h"
+
 template <class AoSoAType, class Field>
 class ExactForceSolver
 {
@@ -41,81 +43,45 @@ class ExactForceSolver
     auto position = Cabana::slice<Field::Position>( *aosoa_device, "position" );
     const std::size_t num_particles = aosoa_device->size();
 
-    using team_policy = Kokkos::TeamPolicy<execution_space>;
-    using member_type = typename team_policy::member_type;
-
     Kokkos::parallel_for(
         "exact_force",
-        team_policy( num_particles, Kokkos::AUTO() ),
-        KOKKOS_LAMBDA( const member_type& team )
+        Kokkos::RangePolicy<execution_space>( 0, num_particles ),
+        KOKKOS_LAMBDA( const int a )
         {
-          const int a = team.league_rank();
           const float x0 = position( a, 0 );
           const float y0 = position( a, 1 );
           const float z0 = position( a, 2 );
           const float g0 = gravity( a );
 
-          float fx = 0.0f;
-          float fy = 0.0f;
-          float fz = 0.0f;
+          double fx = 0.0;
+          double fy = 0.0;
+          double fz = 0.0;
 
-          Kokkos::parallel_reduce(
-              Kokkos::TeamThreadRange( team, num_particles ),
-              [&]( const int b, float& local_fx )
-              {
-                if ( b == a )
-                  return;
-
-                const float dx = position( b, 0 ) - x0;
-                const float dy = position( b, 1 ) - y0;
-                const float dz = position( b, 2 ) - z0;
-                const float r2 = dx * dx + dy * dy + dz * dz;
-                const float dist_inv = 1.0f / Kokkos::sqrt( r2 );
-                const float dist_inv3 = dist_inv * dist_inv * dist_inv;
-                local_fx += g0 * gravity( b ) * dist_inv3 * dx;
-              },
-              fx );
-
-          Kokkos::parallel_reduce(
-              Kokkos::TeamThreadRange( team, num_particles ),
-              [&]( const int b, float& local_fy )
-              {
-                if ( b == a )
-                  return;
-
-                const float dx = position( b, 0 ) - x0;
-                const float dy = position( b, 1 ) - y0;
-                const float dz = position( b, 2 ) - z0;
-                const float r2 = dx * dx + dy * dy + dz * dz;
-                const float dist_inv = 1.0f / Kokkos::sqrt( r2 );
-                const float dist_inv3 = dist_inv * dist_inv * dist_inv;
-                local_fy += g0 * gravity( b ) * dist_inv3 * dy;
-              },
-              fy );
-
-          Kokkos::parallel_reduce(
-              Kokkos::TeamThreadRange( team, num_particles ),
-              [&]( const int b, float& local_fz )
-              {
-                if ( b == a )
-                  return;
-
-                const float dx = position( b, 0 ) - x0;
-                const float dy = position( b, 1 ) - y0;
-                const float dz = position( b, 2 ) - z0;
-                const float r2 = dx * dx + dy * dy + dz * dz;
-                const float dist_inv = 1.0f / Kokkos::sqrt( r2 );
-                const float dist_inv3 = dist_inv * dist_inv * dist_inv;
-                local_fz += g0 * gravity( b ) * dist_inv3 * dz;
-              },
-              fz );
-
-          Kokkos::single( Kokkos::PerTeam( team ), [&]()
+          for ( std::size_t b = 0; b < num_particles; ++b )
           {
-            force( a, 0 ) = fx;
-            force( a, 1 ) = fy;
-            force( a, 2 ) = fz;
-          } );
+            if ( b == static_cast<std::size_t>( a ) )
+              continue;
+
+            const double dx = static_cast<double>( position( b, 0 ) ) -
+                              static_cast<double>( x0 );
+            const double dy = static_cast<double>( position( b, 1 ) ) -
+                              static_cast<double>( y0 );
+            const double dz = static_cast<double>( position( b, 2 ) ) -
+                              static_cast<double>( z0 );
+            const double r2 = dx * dx + dy * dy + dz * dz;
+            const double dist_inv = 1.0 / Kokkos::sqrt( r2 );
+            const double dist_inv3 = dist_inv * dist_inv * dist_inv;
+            const double fp = static_cast<double>( g0 ) *
+                              static_cast<double>( gravity( b ) ) * dist_inv3;
+
+            fx += fp * dx;
+            fy += fp * dy;
+            fz += fp * dz;
+          }
+
+          force( a, 0 ) = static_cast<float>( fx );
+          force( a, 1 ) = static_cast<float>( fy );
+          force( a, 2 ) = static_cast<float>( fz );
         } );
 
     Kokkos::fence();
