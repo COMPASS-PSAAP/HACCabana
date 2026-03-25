@@ -32,16 +32,18 @@ class Solver
     using parameters_type = Parameters;
     using particles_type = Particles<memory_space, execution_space>;
     using actions_type  = ParticleActions<particles_type>;
+    using force_solver_type = HACCabana::force_solver_type;
     using timestepper_type = TimeStepper;
     using aosoa_host_type = typename particles_type::aosoa_host_type; 
 
-    Solver( const int step0 )
+    Solver( const int step0,
+            const force_solver_type solver_type = force_solver_type::p3m )
         : _step0(step0)
         , _parameters()
         , _particles()
         , _actions( &_particles )
     {
-        
+        _actions.setForceSolverType( solver_type );
     }
 
     void setup(const int config_flag, const std::string& configuration_filename, const std::size_t num_particles,
@@ -123,10 +125,11 @@ class Solver
 
 template<class MemorySpace, class ExecutionSpace>
 std::shared_ptr<Solver<MemorySpace, ExecutionSpace>>
-createSolver( const int step0 )
+createSolver( const int step0,
+              const force_solver_type solver_type = force_solver_type::p3m )
 {
     return std::make_shared<Solver<MemorySpace, ExecutionSpace>>(
-            step0 );
+            step0, solver_type );
 }
    
 

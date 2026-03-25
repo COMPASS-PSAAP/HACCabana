@@ -12,14 +12,6 @@
 
 #include <sys/time.h>
 
-#ifdef HACCabana_ENABLE_CANOPY
-template<class AoSoAType, class Field>
-using DefaultForceSolverType = CanopyForceSolver<AoSoAType, Field>;
-#else
-template<class AoSoAType, class Field>
-using DefaultForceSolverType = P3MForceSolver<AoSoAType, Field>;
-#endif
-
 double mytime() {
   timeval tv;
   gettimeofday(&tv, NULL);
@@ -31,7 +23,7 @@ double mytime() {
 namespace HACCabana 
 {
 
-template <class ParticleType, template<class, class> class ForceSolverType = DefaultForceSolverType>
+template <class ParticleType>
 class ParticleActions
 {
     public:
@@ -41,12 +33,17 @@ class ParticleActions
     using Field = typename particle_type::Field;
     using aosoa_type = typename particle_type::aosoa_type;
     using aosoa_host_type = typename particle_type::aosoa_host_type;
-    using force_solver_type = ForceSolverType<aosoa_type, Field>;
+    using force_solver_type = HACCabana::force_solver_type;
+    using runtime_force_solver_type = RuntimeForceSolver<aosoa_type, Field>;
 
-    ParticleActions() {}
+    ParticleActions()
+        : P(nullptr)
+        , _force_solver(force_solver_type::p3m)
+    {}
 
     ParticleActions(particle_type *P_)
         : P(P_)
+        , _force_solver(force_solver_type::p3m)
     {
     };
 
@@ -55,6 +52,16 @@ class ParticleActions
     void setParticles(particle_type *P_)
     {
         P = P_;
+    }
+
+    void setForceSolverType(const force_solver_type solver_type)
+    {
+        _force_solver.setForceSolverType(solver_type);
+    }
+
+    force_solver_type getForceSolverType() const
+    {
+        return _force_solver.getForceSolverType();
     }
 
     void subCycle(TimeStepper &ts, const int nsub, const float gpscal, const float rmax2, const float rsm2, 
@@ -228,7 +235,7 @@ class ParticleActions
 
     private:
     particle_type *P;
-    force_solver_type _force_solver;
+    runtime_force_solver_type _force_solver;
 };
 
 } // end namespace HACCabana

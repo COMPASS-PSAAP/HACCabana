@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include <iostream>
+#include <stdexcept>
 
 #include <Solver.h>
 
@@ -38,6 +39,8 @@ inline bool floatCompare(float f1, float f2) {
 int main( int argc, char* argv[] )
 {
   MPI_Init( &argc, &argv );
+  int return_code = 0;
+  try
   {
   // Kokkos::ScopeGuard initializes Kokkos and guarantees it is finalized.
   Kokkos::ScopeGuard scope_guard(argc, argv);
@@ -52,14 +55,16 @@ int main( int argc, char* argv[] )
   int config_flag = 0;          // configuration file (optional)
   std::size_t num_particles = 0;
   int num_substeps = 0;
+  HACCabana::force_solver_type force_solver = HACCabana::force_solver_type::p3m;
   std::string input_filename = "";
   std::string verification_filename = "";
+  std::string force_solver_name = "p3m";
   char* t_value = NULL;
   std::string configuration_filename = "";
   int c;
   opterr = 0;
 
-  while ((c = getopt (argc, argv, "i:v:dt:c:p:s:")) != -1)
+  while ((c = getopt (argc, argv, "i:v:dt:c:p:s:f:")) != -1)
     switch (c)
     {
       case 'i':
@@ -87,8 +92,12 @@ int main( int argc, char* argv[] )
       case 's':
         num_substeps = std::stoi(optarg);
         break;
+      case 'f':
+        force_solver_name = optarg;
+        force_solver = HACCabana::parse_force_solver_type(force_solver_name);
+        break;
       case '?':
-        if (optopt == 'i' || optopt == 'v' || optopt == 't' || optopt == 'c' || optopt == 'p' || optopt == 's' )
+        if (optopt == 'i' || optopt == 'v' || optopt == 't' || optopt == 'c' || optopt == 'p' || optopt == 's' || optopt == 'f' )
           fprintf (stderr, "Option -%c requires an argument.\n", optopt);
         else
           fprintf (stderr, "Unknown option `-%c'.\n", optopt);
@@ -117,7 +126,13 @@ int main( int argc, char* argv[] )
     step0 = atoi(t_value);
   }
 
-  auto solver = HACCabana::createSolver<MemorySpace, ExecutionSpace>(step0);
+#ifndef HACCabana_ENABLE_CANOPY
+  if (force_solver == HACCabana::force_solver_type::fmm)
+    throw std::runtime_error(
+        "Requested '-f fmm', but HACCabana_ENABLE_CANOPY is not defined." );
+#endif
+
+  auto solver = HACCabana::createSolver<MemorySpace, ExecutionSpace>(step0, force_solver);
   solver->setup(config_flag, configuration_filename, num_particles, num_substeps);
   solver->advance();
   solver->setupParticles(input_flag, input_filename);
@@ -153,7 +168,12 @@ int main( int argc, char* argv[] )
   }
 
   } // Kokkos scopeguard
+  catch (const std::exception& e)
+  {
+    std::cerr << e.what() << std::endl;
+    return_code = 1;
+  }
   MPI_Finalize();
 
-  return 0;
+  return return_code;
 }

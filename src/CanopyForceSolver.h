@@ -62,7 +62,7 @@ class CanopyForceSolver
   void updateVel(std::shared_ptr<AoSoAType> aosoa_device)
   {
     // Solve for force
-    _solver->solve(aosoa_device, 0);
+    _solver->solve(aosoa_device, false);
         
     // Update velocity
     auto velocity = Cabana::slice<Field::Velocity>(*aosoa_device, "velocity");
@@ -72,8 +72,8 @@ class CanopyForceSolver
     auto vector_kick = KOKKOS_LAMBDA(const int s, const int a)
     {
         velocity.access(s,a,0) += force.access(s,a,0) * c;
-        velocity.access(s,a,1) += force.access(s,a,0) * c;
-        velocity.access(s,a,2) += force.access(s,a,0) * c;
+        velocity.access(s,a,1) += force.access(s,a,1) * c;
+        velocity.access(s,a,2) += force.access(s,a,2) * c;
     };
 
     Cabana::SimdPolicy<VECTOR_LENGTH, execution_space> simd_policy(0, aosoa_device->size());
