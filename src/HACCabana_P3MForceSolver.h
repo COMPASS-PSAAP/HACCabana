@@ -44,6 +44,12 @@ class P3MForceSolver
                        const float max_pos, const float rmax2,
                        const float rsm2 )
   {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    if (rank == 0)
+      printf("Starting FMM solve...\n");
+      
     _c = c;
     _rmax2 = rmax2;
     _rsm2 = rsm2;

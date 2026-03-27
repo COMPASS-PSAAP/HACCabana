@@ -27,6 +27,12 @@ class ExactForceSolver
                        const float max_pos, const float rmax2,
                        const float rsm2 )
   {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    if (rank == 0)
+      printf("Starting exact solve...\n");
+
     // (void)aosoa_device;
     _c = c;
     // (void)cm_size;

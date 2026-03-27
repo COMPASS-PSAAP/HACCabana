@@ -41,7 +41,7 @@ class CanopyForceSolver
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     if (rank == 0)
-      printf("Solving with Canopy...\n");
+      printf("Starting fmm solve...\n");
 
     _c = c;
     _rmax2 = rmax2;
