@@ -100,14 +100,20 @@ public:
         std::normal_distribution<float> d2{0.0, 1.0};
         auto velocity = Cabana::slice<Field::Velocity>(aosoa_host, "velocity");
         auto gravity = Cabana::slice<Field::Gravity>(aosoa_host, "gravity");
+        auto force = Cabana::slice<Field::Force>(aosoa_host, "force");
+        auto potential = Cabana::slice<Field::Potential>(aosoa_host, "potential");
+        auto bin_index = Cabana::slice<Field::BinIndex>(aosoa_host, "bin_index");
 
         for (int i=0; i<num_p; ++i)
         {
             for (int j=0; j<3; ++j) {
             velocity(i,j) = vel_1d * d2(gen);
+            force(i,j) = 0.0f;
             }
             // Each particle exerts a gravitational pull of the same strength
             gravity(i) = 1.0;
+            potential(i) = 0.0f;
+            bin_index(i) = 0;
         }
 
         std::cout << "\t" << num_p << " particles\n" <<
@@ -133,6 +139,10 @@ public:
         auto id = Cabana::slice<Field::ParticleID>(aosoa_host, "id");
         auto position = Cabana::slice<Field::Position>(aosoa_host, "position");
         auto velocity = Cabana::slice<Field::Velocity>(aosoa_host, "velocity");
+        auto force = Cabana::slice<Field::Force>(aosoa_host, "force");
+        auto gravity = Cabana::slice<Field::Gravity>(aosoa_host, "gravity");
+        auto potential = Cabana::slice<Field::Potential>(aosoa_host, "potential");
+        auto bin_index = Cabana::slice<Field::BinIndex>(aosoa_host, "bin_index");
 
         float min_pos[3];
         float max_pos[3];
@@ -167,6 +177,15 @@ public:
         for (int i=0; i<num_p; ++i)
             infile.read((char*)&velocity(i,2),sizeof(float));
 
+        for (int i = 0; i < num_p; ++i)
+        {
+            gravity(i) = 1.0f;
+            potential(i) = 0.0f;
+            bin_index(i) = 0;
+            for (int j = 0; j < 3; ++j)
+                force(i,j) = 0.0f;
+        }
+
         infile.close();
 
         std::cout << "\t" << num_p << " particles\n" << 
@@ -179,33 +198,61 @@ public:
         auto id = Cabana::slice<Field::ParticleID>(aosoa_host, "id");
         auto position = Cabana::slice<Field::Position>(aosoa_host, "position");
         auto velocity = Cabana::slice<Field::Velocity>(aosoa_host, "velocity");
+        auto force = Cabana::slice<Field::Force>(aosoa_host, "force");
+        auto gravity = Cabana::slice<Field::Gravity>(aosoa_host, "gravity");
+        auto potential = Cabana::slice<Field::Potential>(aosoa_host, "potential");
+        auto bin_index = Cabana::slice<Field::BinIndex>(aosoa_host, "bin_index");
 
-        auto end = aosoa_host.size();
+        std::size_t end = aosoa_host.size();
 
-        // Relocate any particle outside of the boundary to the end of the 
-        // aosoa -- outside particles start at end until the end of the aosoa.
-        for (int i=0; i<end; ++i) {
+        // Compact all in-bounds particles into the prefix of the AoSoA and then
+        // discard the out-of-bounds suffix so downstream kernels only see live particles.
+        std::size_t i = 0;
+        while (i < end)
+        {
             if (position(i,0) < min_pos || position(i,1) < min_pos || position(i,2) < min_pos ||
                 position(i,0) >= max_pos || position(i,1) >= max_pos || position(i,2) >= max_pos)
             {
-            for (int j=0; j<3; ++j)
-            {
-                float tmp;
-                tmp = position(i,j);
-                position(i,j) = position(end-1,j);
-                position(end-1,j) = tmp;
-                tmp = velocity(i,j);
-                velocity(i,j) = velocity(end-1,j);
-                velocity(end-1,j) = tmp;
-            }
-            int64_t tmp2 = id(i);
-            id(i) = id(end-1);
-            id(end-1) = tmp2;
+                const std::size_t tail = end - 1;
 
-            --end;
-            --i;
+                for (int j = 0; j < 3; ++j)
+                {
+                    float tmp = position(i,j);
+                    position(i,j) = position(tail,j);
+                    position(tail,j) = tmp;
+
+                    tmp = velocity(i,j);
+                    velocity(i,j) = velocity(tail,j);
+                    velocity(tail,j) = tmp;
+
+                    tmp = force(i,j);
+                    force(i,j) = force(tail,j);
+                    force(tail,j) = tmp;
+                }
+
+                float tmp_scalar = gravity(i);
+                gravity(i) = gravity(tail);
+                gravity(tail) = tmp_scalar;
+
+                tmp_scalar = potential(i);
+                potential(i) = potential(tail);
+                potential(tail) = tmp_scalar;
+
+                int tmp_int = bin_index(i);
+                bin_index(i) = bin_index(tail);
+                bin_index(tail) = tmp_int;
+
+                int64_t tmp_id = id(i);
+                id(i) = id(tail);
+                id(tail) = tmp_id;
+
+                --end;
             }
+            else
+                ++i;
         }
+
+        aosoa_host.resize(end);
     }
 };
 

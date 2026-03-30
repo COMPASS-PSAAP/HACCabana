@@ -191,6 +191,95 @@ TEST( RegressionExactVsFMM, NearFieldForcesMatch )
   }
 }
 
+TEST( Particles, ReorderDropsOutOfBoundsParticlesAndPreservesFields )
+{
+  particles_type particles;
+  particles.aosoa_host = aosoa_host_type( "reorder_particles", 4 );
+
+  auto particle_id =
+      Cabana::slice<Field::ParticleID>( particles.aosoa_host, "particle_id" );
+  auto position =
+      Cabana::slice<Field::Position>( particles.aosoa_host, "position" );
+  auto velocity =
+      Cabana::slice<Field::Velocity>( particles.aosoa_host, "velocity" );
+  auto force = Cabana::slice<Field::Force>( particles.aosoa_host, "force" );
+  auto gravity =
+      Cabana::slice<Field::Gravity>( particles.aosoa_host, "gravity" );
+  auto potential =
+      Cabana::slice<Field::Potential>( particles.aosoa_host, "potential" );
+  auto bin_index =
+      Cabana::slice<Field::BinIndex>( particles.aosoa_host, "bin_index" );
+
+  const std::array<std::array<float, 3>, 4> positions = {{
+      {{0.25f, 0.25f, 0.25f}},
+      {{-0.10f, 0.40f, 0.40f}},
+      {{0.75f, 0.75f, 0.75f}},
+      {{1.10f, 0.60f, 0.60f}},
+  }};
+
+  for ( int i = 0; i < 4; ++i )
+  {
+    particle_id( i ) = 100 + i;
+    gravity( i ) = 10.0f + i;
+    potential( i ) = 20.0f + i;
+    bin_index( i ) = 30 + i;
+
+    for ( int d = 0; d < 3; ++d )
+    {
+      position( i, d ) = positions[i][d];
+      velocity( i, d ) = 40.0f + 10.0f * i + d;
+      force( i, d ) = 70.0f + 10.0f * i + d;
+    }
+  }
+
+  particles.reorder( 0.0f, 1.0f );
+
+  ASSERT_EQ( particles.aosoa_host.size(), 2u );
+
+  auto kept_particle_id =
+      Cabana::slice<Field::ParticleID>( particles.aosoa_host, "particle_id" );
+  auto kept_position =
+      Cabana::slice<Field::Position>( particles.aosoa_host, "position" );
+  auto kept_velocity =
+      Cabana::slice<Field::Velocity>( particles.aosoa_host, "velocity" );
+  auto kept_force =
+      Cabana::slice<Field::Force>( particles.aosoa_host, "force" );
+  auto kept_gravity =
+      Cabana::slice<Field::Gravity>( particles.aosoa_host, "gravity" );
+  auto kept_potential =
+      Cabana::slice<Field::Potential>( particles.aosoa_host, "potential" );
+  auto kept_bin_index =
+      Cabana::slice<Field::BinIndex>( particles.aosoa_host, "bin_index" );
+
+  std::vector<int64_t> kept_ids;
+  kept_ids.reserve( particles.aosoa_host.size() );
+  for ( std::size_t i = 0; i < particles.aosoa_host.size(); ++i )
+    kept_ids.push_back( kept_particle_id( i ) );
+  std::sort( kept_ids.begin(), kept_ids.end() );
+
+  ASSERT_EQ( kept_ids, ( std::vector<int64_t>{ 100, 102 } ) );
+
+  for ( std::size_t i = 0; i < particles.aosoa_host.size(); ++i )
+  {
+    const int original_index = static_cast<int>( kept_particle_id( i ) - 100 );
+    ASSERT_GE( original_index, 0 );
+    ASSERT_LT( original_index, 4 );
+
+    for ( int d = 0; d < 3; ++d )
+    {
+      EXPECT_FLOAT_EQ( kept_position( i, d ), positions[original_index][d] );
+      EXPECT_FLOAT_EQ( kept_velocity( i, d ),
+                       40.0f + 10.0f * original_index + d );
+      EXPECT_FLOAT_EQ( kept_force( i, d ),
+                       70.0f + 10.0f * original_index + d );
+    }
+
+    EXPECT_FLOAT_EQ( kept_gravity( i ), 10.0f + original_index );
+    EXPECT_FLOAT_EQ( kept_potential( i ), 20.0f + original_index );
+    EXPECT_EQ( kept_bin_index( i ), 30 + original_index );
+  }
+}
+
 int main( int argc, char* argv[] )
 {
   MPI_Init( &argc, &argv );

@@ -50,9 +50,9 @@ class CanopyForceSolver
     
     float dx = cm_size;
 
-    // Set large domain size to avoid out-of-bounds cells
-    float x_min = min_pos * 2;
-    float x_max = max_pos * 2;
+    // Buffer the original domain slightly without shifting it.
+    float x_min = min_pos - dx;
+    float x_max = max_pos + dx;
     
     // Min and max positions must be buffered slightly to avoid cell centers that
     // are out of domain bounds.
