@@ -15,6 +15,7 @@
 
 #include "HACCabana_CanopyForceSolver.h"
 #include "HACCabana_ExactForceSolver.h"
+#include "HACCabana_ParticleActions.h"
 #include "HACCabana_Particles.h"
 
 namespace
@@ -277,6 +278,61 @@ TEST( Particles, ReorderDropsOutOfBoundsParticlesAndPreservesFields )
     EXPECT_FLOAT_EQ( kept_gravity( i ), 10.0f + original_index );
     EXPECT_FLOAT_EQ( kept_potential( i ), 20.0f + original_index );
     EXPECT_EQ( kept_bin_index( i ), 30 + original_index );
+  }
+}
+
+TEST( ParticleActions, UpdatePosWrapsPeriodicallyIntoDomain )
+{
+  particles_type particles;
+  particles.aosoa_host = aosoa_host_type( "wrapped_particles", 3 );
+
+  auto position =
+      Cabana::slice<Field::Position>( particles.aosoa_host, "position" );
+  auto velocity =
+      Cabana::slice<Field::Velocity>( particles.aosoa_host, "velocity" );
+
+  position( 0, 0 ) = 0.98f;
+  position( 0, 1 ) = 0.20f;
+  position( 0, 2 ) = 0.30f;
+  velocity( 0, 0 ) = 0.05f;
+  velocity( 0, 1 ) = 0.0f;
+  velocity( 0, 2 ) = 0.0f;
+
+  position( 1, 0 ) = 0.02f;
+  position( 1, 1 ) = 0.40f;
+  position( 1, 2 ) = 0.50f;
+  velocity( 1, 0 ) = -0.05f;
+  velocity( 1, 1 ) = 0.0f;
+  velocity( 1, 2 ) = 0.0f;
+
+  position( 2, 0 ) = 0.40f;
+  position( 2, 1 ) = 0.50f;
+  position( 2, 2 ) = 0.60f;
+  velocity( 2, 0 ) = 2.30f;
+  velocity( 2, 1 ) = 0.0f;
+  velocity( 2, 2 ) = 0.0f;
+
+  auto particles_d = copyToDevice( particles.aosoa_host, "wrapped_particles_d" );
+
+  HACCabana::ParticleActions<particles_type> actions;
+  actions.updatePos( particles_d, 1.0f, 0.0f, 1.0f );
+
+  auto wrapped_h =
+      Cabana::create_mirror_view_and_copy( Kokkos::HostSpace(), *particles_d );
+  auto wrapped_position =
+      Cabana::slice<Field::Position>( wrapped_h, "wrapped_position" );
+
+  EXPECT_NEAR( wrapped_position( 0, 0 ), 0.03f, 1.0e-6f );
+  EXPECT_NEAR( wrapped_position( 1, 0 ), 0.97f, 1.0e-6f );
+  EXPECT_NEAR( wrapped_position( 2, 0 ), 0.70f, 1.0e-6f );
+
+  for ( int i = 0; i < wrapped_h.size(); ++i )
+  {
+    for ( int d = 0; d < 3; ++d )
+    {
+      EXPECT_GE( wrapped_position( i, d ), 0.0f );
+      EXPECT_LT( wrapped_position( i, d ), 1.0f );
+    }
   }
 }
 
