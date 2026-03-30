@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -56,6 +57,7 @@ int main( int argc, char* argv[] )
   int synthetic_data_flag = 0;  // generate synthetic data
   int timestep_flag = 0;        // timstep to advance to (required)
   int config_flag = 0;          // configuration file (optional)
+  int print_positions_flag = 0; // print final particle positions (optional)
   std::size_t num_particles = 0;
   int num_substeps = 0;
   HACCabana::force_solver_type force_solver = HACCabana::force_solver_type::p3m;
@@ -66,8 +68,14 @@ int main( int argc, char* argv[] )
   std::string configuration_filename = "";
   int c;
   opterr = 0;
+  static struct option long_options[] = {
+    {"print-positions", no_argument, nullptr, 'P'},
+    {nullptr, 0, nullptr, 0}
+  };
+  int option_index = 0;
 
-  while ((c = getopt (argc, argv, "i:v:dt:c:p:s:f:")) != -1)
+  while ((c = getopt_long(argc, argv, "i:v:dt:c:p:s:f:P", long_options,
+                          &option_index)) != -1)
     switch (c)
     {
       case 'i':
@@ -98,6 +106,9 @@ int main( int argc, char* argv[] )
       case 'f':
         force_solver_name = optarg;
         force_solver = HACCabana::parse_force_solver_type(force_solver_name);
+        break;
+      case 'P':
+        print_positions_flag = 1;
         break;
       case '?':
         if (optopt == 'i' || optopt == 'v' || optopt == 't' || optopt == 'c' || optopt == 'p' || optopt == 's' || optopt == 'f' )
@@ -141,37 +152,40 @@ int main( int argc, char* argv[] )
   solver->setupParticles(input_flag, input_filename);
   solver->subCycle();
 
-  // don't check particles in boundary cells
-  auto parameters = solver->parameters();
-  const float dx_boundary = parameters.cm_size;
-  const float min_alive_pos = parameters.oL;
-  const float max_alive_pos = parameters.rL+parameters.oL;
-
-  // cout << "\tExcluding boundary cells of Linked Cell List.\n\tPrinting all particles within [" << parameters.oL+dx_boundary << "," << parameters.rL+parameters.oL-dx_boundary << ")" << endl;
-
-  int num_p = solver->num_p();
-  using Field = typename HACCabana::Solver<MemorySpace, ExecutionSpace>::particles_type::Field;
-  cout << "\nPrinting final particle positions:"  << endl;
-  auto particles_h = solver->data();
-  auto particle_id = Cabana::slice<Field::ParticleID>( particles_h, "particle_id" );
-  auto position = Cabana::slice<Field::Position>( particles_h, "position" );
-
-  std::vector<int> sorted_indices( num_p );
-  std::iota( sorted_indices.begin(), sorted_indices.end(), 0 );
-  std::sort( sorted_indices.begin(), sorted_indices.end(),
-             [&]( const int lhs, const int rhs )
-             { return particle_id( lhs ) < particle_id( rhs ); } );
-
-  for ( const int i : sorted_indices )
+  if (print_positions_flag)
   {
-    if (position(i,0) >= min_alive_pos+dx_boundary &&\
-        position(i,1) >= min_alive_pos+dx_boundary &&\
-        position(i,2) >= min_alive_pos+dx_boundary &&\
-        position(i,0) <  max_alive_pos-dx_boundary &&\
-        position(i,1) <  max_alive_pos-dx_boundary &&\
-        position(i,2) <  max_alive_pos-dx_boundary)
+    // don't check particles in boundary cells
+    auto parameters = solver->parameters();
+    const float dx_boundary = parameters.cm_size;
+    const float min_alive_pos = parameters.oL;
+    const float max_alive_pos = parameters.rL+parameters.oL;
+
+    // cout << "\tExcluding boundary cells of Linked Cell List.\n\tPrinting all particles within [" << parameters.oL+dx_boundary << "," << parameters.rL+parameters.oL-dx_boundary << ")" << endl;
+
+    int num_p = solver->num_p();
+    using Field = typename HACCabana::Solver<MemorySpace, ExecutionSpace>::particles_type::Field;
+    cout << "\nPrinting final particle positions:"  << endl;
+    auto particles_h = solver->data();
+    auto particle_id = Cabana::slice<Field::ParticleID>( particles_h, "particle_id" );
+    auto position = Cabana::slice<Field::Position>( particles_h, "position" );
+
+    std::vector<int> sorted_indices( num_p );
+    std::iota( sorted_indices.begin(), sorted_indices.end(), 0 );
+    std::sort( sorted_indices.begin(), sorted_indices.end(),
+               [&]( const int lhs, const int rhs )
+               { return particle_id( lhs ) < particle_id( rhs ); } );
+
+    for ( const int i : sorted_indices )
     {
-      printf("p(%.4lf, %.4lf, %.4lf)\n", position(i, 0), position(i, 1), position(i, 2));
+      if (position(i,0) >= min_alive_pos+dx_boundary &&\
+          position(i,1) >= min_alive_pos+dx_boundary &&\
+          position(i,2) >= min_alive_pos+dx_boundary &&\
+          position(i,0) <  max_alive_pos-dx_boundary &&\
+          position(i,1) <  max_alive_pos-dx_boundary &&\
+          position(i,2) <  max_alive_pos-dx_boundary)
+      {
+        printf("p(%.4lf, %.4lf, %.4lf)\n", position(i, 0), position(i, 1), position(i, 2));
+      }
     }
   }
 
