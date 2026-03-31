@@ -5,20 +5,12 @@
 
 #include <Cabana_Core.hpp>
 
-#include "Definitions.h"
-#include "TimeStepper.h"
-#include "Particles.h"
-#include "ForceSolvers.h"
+#include "HACCabana_Definitions.h"
+#include "HACCabana_TimeStepper.h"
+#include "HACCabana_Particles.h"
+#include "HACCabana_ForceSolvers.h"
 
 #include <sys/time.h>
-
-#ifdef HACCabana_ENABLE_CANOPY
-template<class AoSoAType, class Field>
-using DefaultForceSolverType = CanopyForceSolver<AoSoAType, Field>;
-#else
-template<class AoSoAType, class Field>
-using DefaultForceSolverType = P3MForceSolver<AoSoAType, Field>;
-#endif
 
 double mytime() {
   timeval tv;
@@ -31,7 +23,7 @@ double mytime() {
 namespace HACCabana 
 {
 
-template <class ParticleType, template<class, class> class ForceSolverType = DefaultForceSolverType>
+template <class ParticleType>
 class ParticleActions
 {
     public:
@@ -41,12 +33,17 @@ class ParticleActions
     using Field = typename particle_type::Field;
     using aosoa_type = typename particle_type::aosoa_type;
     using aosoa_host_type = typename particle_type::aosoa_host_type;
-    using force_solver_type = ForceSolverType<aosoa_type, Field>;
+    using force_solver_type = HACCabana::force_solver_type;
+    using runtime_force_solver_type = RuntimeForceSolver<aosoa_type, Field>;
 
-    ParticleActions() {}
+    ParticleActions()
+        : P(nullptr)
+        , _force_solver(force_solver_type::p3m)
+    {}
 
     ParticleActions(particle_type *P_)
         : P(P_)
+        , _force_solver(force_solver_type::p3m)
     {
     };
 
@@ -55,6 +52,16 @@ class ParticleActions
     void setParticles(particle_type *P_)
     {
         P = P_;
+    }
+
+    void setForceSolverType(const force_solver_type solver_type)
+    {
+        _force_solver.setForceSolverType(solver_type);
+    }
+
+    force_solver_type getForceSolverType() const
+    {
+        return _force_solver.getForceSolverType();
     }
 
     void subCycle(TimeStepper &ts, const int nsub, const float gpscal, const float rmax2, const float rsm2, 
@@ -112,7 +119,7 @@ class ParticleActions
                 std::cout << "Doing substep " << step << std::endl;
 
             //half stream
-            this->updatePos(aosoa_device, prefactor*tau*0.5);
+            this->updatePos(aosoa_device, prefactor*tau*0.5, min_pos, max_pos);
 
             // kick
             double tmp = mytime();
@@ -128,7 +135,7 @@ class ParticleActions
             // }
 
             //half stream
-            this->updatePos(aosoa_device, prefactor*tau*0.5);
+            this->updatePos(aosoa_device, prefactor*tau*0.5, min_pos, max_pos);
         }
 
         std::cout << "Rank " << rank << ": kick time " << kick_time << std::endl;
@@ -138,16 +145,30 @@ class ParticleActions
         Cabana::deep_copy(P->aosoa_host, *aosoa_device);
     }
 
-    void updatePos(std::shared_ptr<aosoa_type> aosoa_device, float prefactor)
+    void updatePos(std::shared_ptr<aosoa_type> aosoa_device, float prefactor,
+                   const float min_pos, const float max_pos)
     {
         auto position = Cabana::slice<Field::Position>(*aosoa_device, "position");
         auto velocity = Cabana::slice<Field::Velocity>(*aosoa_device, "velocity");
+        const float domain_size = max_pos - min_pos;
 
         Kokkos::parallel_for("stream", Kokkos::RangePolicy<execution_space>(0, aosoa_device->size()),
         KOKKOS_LAMBDA(const int i) {
-            position(i,0) = position(i,0) + prefactor * velocity(i,0);
-            position(i,1) = position(i,1) + prefactor * velocity(i,1);
-            position(i,2) = position(i,2) + prefactor * velocity(i,2);
+            for (int d = 0; d < 3; ++d)
+            {
+                float x = position(i,d) + prefactor * velocity(i,d);
+
+                // HACC's cosmology box is periodic. Keep particles in [min_pos, max_pos)
+                // after every stream so downstream force solvers never see escaped particles.
+                x = min_pos + (x - min_pos) -
+                    domain_size * Kokkos::floor((x - min_pos) / domain_size);
+
+                // Guard against roundoff producing the non-inclusive upper bound.
+                if (x >= max_pos)
+                    x = min_pos;
+
+                position(i,d) = x;
+            }
         });
         Kokkos::fence();
     }
@@ -228,7 +249,7 @@ class ParticleActions
 
     private:
     particle_type *P;
-    force_solver_type _force_solver;
+    runtime_force_solver_type _force_solver;
 };
 
 } // end namespace HACCabana

@@ -3,17 +3,23 @@
 
 #include <Canopy_Core.hpp>
 
+#include "HACCabana_Definitions.h"
+
 #include <mpi.h>
 
 template <class AoSoAType, class Field>
 class CanopyForceSolver
 {
+  public:
+  static constexpr int num_coefficients = 6;
+  static constexpr int leaf_tiles = 16;
+  static constexpr int reduction_factor = 2;
+
   private:
   // Variables needed for Canopy
   using memory_space = typename AoSoAType::memory_space;
   using execution_space = typename AoSoAType::execution_space;
   using MD = Canopy::ParticleMetadata<AoSoAType, float, Field::Position, Field::Gravity, Field::Potential, Field::Force>; 
-  static constexpr int num_coefficients = 6;
   std::shared_ptr<Canopy::Solver<memory_space, execution_space, MD,
                                  2, num_coefficients>> _solver;
   
@@ -35,7 +41,7 @@ class CanopyForceSolver
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     if (rank == 0)
-      printf("Solving with Canopy...\n");
+      printf("Starting fmm solve...\n");
 
     _c = c;
     _rmax2 = rmax2;
@@ -43,6 +49,8 @@ class CanopyForceSolver
     _step = 0;
     
     float dx = cm_size;
+
+    // Buffer the original domain slightly without shifting it.
     float x_min = min_pos - dx;
     float x_max = max_pos + dx;
     
@@ -52,21 +60,36 @@ class CanopyForceSolver
     std::array<float, 3> grid_max = {x_max, x_max, x_max};
 
     // FMM parameters
-    const int leaf_tiles = 16;
-    const int reduction_factor = 4;
-
     _solver = Canopy::createSolver<memory_space, execution_space, MD, 2, num_coefficients>
         (grid_min, grid_max, leaf_tiles, reduction_factor, MPI_COMM_WORLD);
   }
 
   void updateVel(std::shared_ptr<AoSoAType> aosoa_device)
   {
-    // Solve for force
-    _solver->solve(aosoa_device, 0);
-        
+    // Canopy interprets positive scalars with the opposite sign convention
+    // from HACCabana's gravitational force. Normalize force and potential
+    // here so the rest of HACCabana always sees attractive gravity.
+    _solver->solve(aosoa_device, false);
+
+    auto force = Cabana::slice<Field::Force>( *aosoa_device, "force" );
+    auto potential =
+        Cabana::slice<Field::Potential>( *aosoa_device, "potential" );
+
+    Kokkos::parallel_for(
+        "convert_canopy_gravity_convention",
+        Kokkos::RangePolicy<execution_space>( 0, aosoa_device->size() ),
+        KOKKOS_LAMBDA( const int i )
+        {
+          force( i, 0 ) = -force( i, 0 );
+          force( i, 1 ) = -force( i, 1 );
+          force( i, 2 ) = -force( i, 2 );
+          potential( i ) = -potential( i );
+        } );
+
+    Kokkos::fence();
+
     // Update velocity
-    auto velocity = Cabana::slice<Field::Velocity>(*aosoa_device, "velocity");
-    auto force = Cabana::slice<Field::Force>(*aosoa_device, "force");
+    auto velocity = Cabana::slice<Field::Velocity>( *aosoa_device, "velocity" );
 
     auto c = _c;
     auto vector_kick = KOKKOS_LAMBDA(const int s, const int a)

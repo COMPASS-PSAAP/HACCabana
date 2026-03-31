@@ -3,24 +3,26 @@ configure_file(HACCabana_Config.h.in
                ${CMAKE_CURRENT_BINARY_DIR}/HACCabana_Config.h)
 
 set(HACCABANA_HEADERS
-  Definitions.h
-  ForceSolvers.h
-  Parameters.h
-  ParticleActions.h
-  Particles.h
-  TimeStepper.h
-  Solver.h
+  HACCabana_Definitions.h
+  HACCabana_ExactForceSolver.h
+  HACCabana_ForceSolvers.h
+  HACCabana_Parameters.h
+  HACCabana_ParticleActions.h
+  HACCabana_Particles.h
+  HACCabana_P3MForceSolver.h
+  HACCabana_TimeStepper.h
+  HACCabana_Solver.h
 )
 
 if(HACCabana_ENABLE_CANOPY)
   list(APPEND HACCABANA_HEADERS
-    CanopyForceSolver.h
+    HACCabana_CanopyForceSolver.h
     )
 endif()
 
 set(HACCABANA_SOURCES
-  Parameters.cxx
-  TimeStepper.cxx
+  HACCabana_Parameters.cxx
+  HACCabana_TimeStepper.cxx
 )
 
 add_library(HACCabana ${HACCABANA_SOURCES})
