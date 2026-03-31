@@ -60,7 +60,7 @@ class RuntimeForceSolver
   class ForceSolverInterface
   {
     public:
-    virtual ~ForceSolverInterface() = default;
+    virtual ~ForceSolverInterface() noexcept = default;
 
     virtual void setup_subcycle( AoSoAType& aosoa_device, const float c,
                                  const float cm_size, const float min_pos,
@@ -73,6 +73,8 @@ class RuntimeForceSolver
   class ForceSolverModel : public ForceSolverInterface
   {
     public:
+    ~ForceSolverModel() noexcept override = default;
+
     void setup_subcycle( AoSoAType& aosoa_device, const float c,
                          const float cm_size, const float min_pos,
                          const float max_pos, const float rmax2,
@@ -85,6 +87,11 @@ class RuntimeForceSolver
     void updateVel( std::shared_ptr<AoSoAType> aosoa_device ) override
     {
       _solver.updateVel( aosoa_device );
+    }
+
+    SolverImpl& implementation()
+    {
+      return _solver;
     }
 
     private:
@@ -132,6 +139,20 @@ class RuntimeForceSolver
     _solver->updateVel( aosoa_device );
   }
 
+  void setLeafTiles( const int leaf_tiles )
+  {
+    _leaf_tiles = leaf_tiles;
+    if ( _solver_type == force_solver_type::fmm )
+      initializeSolver();
+  }
+
+  void setReductionFactor( const int reduction_factor )
+  {
+    _reduction_factor = reduction_factor;
+    if ( _solver_type == force_solver_type::fmm )
+      initializeSolver();
+  }
+
   private:
   void initializeSolver()
   {
@@ -145,7 +166,13 @@ class RuntimeForceSolver
         return;
       case force_solver_type::fmm:
 #ifdef HACCabana_ENABLE_CANOPY
-        _solver = std::make_unique<ForceSolverModel<CanopyForceSolver<AoSoAType, Field>>>();
+        {
+          auto solver = std::make_unique<
+              ForceSolverModel<CanopyForceSolver<AoSoAType, Field>>>();
+          solver->implementation().setLeafTiles( _leaf_tiles );
+          solver->implementation().setReductionFactor( _reduction_factor );
+          _solver = std::move( solver );
+        }
         return;
 #else
         throw std::runtime_error(
@@ -157,6 +184,8 @@ class RuntimeForceSolver
   }
 
   force_solver_type _solver_type;
+  int _leaf_tiles = 16;
+  int _reduction_factor = 2;
   std::unique_ptr<ForceSolverInterface> _solver;
 };
 

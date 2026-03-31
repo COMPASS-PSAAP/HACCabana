@@ -70,6 +70,16 @@ class Solver
                 _parameters.wa_de);
     }
 
+    void setLeafTiles( const int leaf_tiles )
+    {
+        _actions.setLeafTiles( leaf_tiles );
+    }
+
+    void setReductionFactor( const int reduction_factor )
+    {
+        _actions.setReductionFactor( reduction_factor );
+    }
+
     void advance()
     {
         std::cout << "Advancing timestepper to step " << _step0 << std::endl;

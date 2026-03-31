@@ -12,8 +12,8 @@ class CanopyForceSolver
 {
   public:
   static constexpr int num_coefficients = 6;
-  static constexpr int leaf_tiles = 16;
-  static constexpr int reduction_factor = 2;
+  int leaf_tiles = 16;
+  int reduction_factor = 2;
 
   private:
   // Variables needed for Canopy
@@ -31,6 +31,16 @@ class CanopyForceSolver
   public:
   CanopyForceSolver() {}
   ~CanopyForceSolver() {}
+
+  void setLeafTiles( const int leaf_tiles_ )
+  {
+    leaf_tiles = leaf_tiles_;
+  }
+
+  void setReductionFactor( const int reduction_factor_ )
+  {
+    reduction_factor = reduction_factor_;
+  }
 
   void setup_subcycle(AoSoAType& aosoa_device,
                       const float c, const float cm_size,

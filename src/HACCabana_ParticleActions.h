@@ -59,6 +59,16 @@ class ParticleActions
         _force_solver.setForceSolverType(solver_type);
     }
 
+    void setLeafTiles( const int leaf_tiles )
+    {
+        _force_solver.setLeafTiles( leaf_tiles );
+    }
+
+    void setReductionFactor( const int reduction_factor )
+    {
+        _force_solver.setReductionFactor( reduction_factor );
+    }
+
     force_solver_type getForceSolverType() const
     {
         return _force_solver.getForceSolverType();

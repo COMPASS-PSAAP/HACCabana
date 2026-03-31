@@ -20,8 +20,6 @@ class ExactForceSolver
   ExactForceSolver() {}
   ~ExactForceSolver() {}
 
-  
-
   void setup_subcycle( AoSoAType& aosoa_device, const float c,
                        const float cm_size, const float min_pos,
                        const float max_pos, const float rmax2,

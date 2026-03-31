@@ -58,8 +58,12 @@ int main( int argc, char* argv[] )
   int timestep_flag = 0;        // timstep to advance to (required)
   int config_flag = 0;          // configuration file (optional)
   int print_positions_flag = 0; // print final particle positions (optional)
+  int leaf_tiles_flag = 0;      // Canopy leaf tiles (FMM only)
+  int reduction_factor_flag = 0; // Canopy reduction factor (FMM only)
   std::size_t num_particles = 0;
   int num_substeps = 0;
+  int leaf_tiles = 16;
+  int reduction_factor = 2;
   HACCabana::force_solver_type force_solver = HACCabana::force_solver_type::p3m;
   std::string input_filename = "";
   std::string verification_filename = "";
@@ -74,7 +78,7 @@ int main( int argc, char* argv[] )
   };
   int option_index = 0;
 
-  while ((c = getopt_long(argc, argv, "i:v:dt:c:p:s:f:P", long_options,
+  while ((c = getopt_long(argc, argv, "i:v:dt:c:p:s:f:Pl:r:", long_options,
                           &option_index)) != -1)
     switch (c)
     {
@@ -110,8 +114,18 @@ int main( int argc, char* argv[] )
       case 'P':
         print_positions_flag = 1;
         break;
+      case 'l':
+        leaf_tiles_flag = 1;
+        leaf_tiles = std::stoi(optarg);
+        break;
+      case 'r':
+        reduction_factor_flag = 1;
+        reduction_factor = std::stoi(optarg);
+        break;
       case '?':
-        if (optopt == 'i' || optopt == 'v' || optopt == 't' || optopt == 'c' || optopt == 'p' || optopt == 's' || optopt == 'f' )
+        if (optopt == 'i' || optopt == 'v' || optopt == 't' || optopt == 'c' ||
+            optopt == 'p' || optopt == 's' || optopt == 'f' || optopt == 'l' ||
+            optopt == 'r')
           fprintf (stderr, "Option -%c requires an argument.\n", optopt);
         else
           fprintf (stderr, "Unknown option `-%c'.\n", optopt);
@@ -140,6 +154,17 @@ int main( int argc, char* argv[] )
     step0 = atoi(t_value);
   }
 
+  if (leaf_tiles <= 0)
+    throw std::runtime_error("Option '-l' requires a positive integer.");
+
+  if (reduction_factor <= 0)
+    throw std::runtime_error("Option '-r' requires a positive integer.");
+
+  if ((leaf_tiles_flag || reduction_factor_flag) &&
+      force_solver != HACCabana::force_solver_type::fmm)
+    throw std::runtime_error(
+        "Options '-l' and '-r' require the FMM solver. Use '-f fmm'." );
+
 #ifndef HACCabana_ENABLE_CANOPY
   if (force_solver == HACCabana::force_solver_type::fmm)
     throw std::runtime_error(
@@ -147,6 +172,10 @@ int main( int argc, char* argv[] )
 #endif
 
   auto solver = HACCabana::createSolver<MemorySpace, ExecutionSpace>(step0, force_solver);
+  if (leaf_tiles_flag)
+    solver->setLeafTiles(leaf_tiles);
+  if (reduction_factor_flag)
+    solver->setReductionFactor(reduction_factor);
   solver->setup(config_flag, configuration_filename, num_particles, num_substeps);
   solver->advance();
   solver->setupParticles(input_flag, input_filename);
