@@ -1,1 +1,1 @@
-cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
+cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHACCabana_ENABLE_TESTING=ON ..

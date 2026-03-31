@@ -8,6 +8,10 @@ project(HACCabana
   LANGUAGES CXX C
 )
 
+option(HACCabana_ENABLE_TESTING
+       "Enable unit and regression tests"
+       OFF)
+
 # If the user doesn't provide a build type default to release
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CXX_FLAGS)
   #release comes with -O3 by default
@@ -106,6 +110,13 @@ add_subdirectory(src)
 
 # Drivers
 add_subdirectory(drivers)
+
+if(HACCabana_ENABLE_TESTING)
+  find_package(MPI REQUIRED)
+  find_package(GTest REQUIRED)
+  enable_testing()
+  add_subdirectory(tests)
+endif()
 
 # Package configuration files (HACCabanaConfig.cmake + version file)
 write_basic_package_version_file(

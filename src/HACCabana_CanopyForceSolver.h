@@ -1,0 +1,111 @@
+#ifndef CANOPY_FORCE_SOLVER_H
+#define CANOPY_FORCE_SOLVER_H
+
+#include <Canopy_Core.hpp>
+
+#include "HACCabana_Definitions.h"
+
+#include <mpi.h>
+
+template <class AoSoAType, class Field>
+class CanopyForceSolver
+{
+  public:
+  static constexpr int num_coefficients = 6;
+  static constexpr int leaf_tiles = 16;
+  static constexpr int reduction_factor = 2;
+
+  private:
+  // Variables needed for Canopy
+  using memory_space = typename AoSoAType::memory_space;
+  using execution_space = typename AoSoAType::execution_space;
+  using MD = Canopy::ParticleMetadata<AoSoAType, float, Field::Position, Field::Gravity, Field::Potential, Field::Force>; 
+  std::shared_ptr<Canopy::Solver<memory_space, execution_space, MD,
+                                 2, num_coefficients>> _solver;
+  
+  float _c;
+  float _rmax2;
+  float _rsm2;
+  int _step;
+  
+  public:
+  CanopyForceSolver() {}
+  ~CanopyForceSolver() {}
+
+  void setup_subcycle(AoSoAType& aosoa_device,
+                      const float c, const float cm_size,
+                      const float min_pos, const float max_pos,
+                      const float rmax2, const float rsm2)
+  {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    if (rank == 0)
+      printf("Starting fmm solve...\n");
+
+    _c = c;
+    _rmax2 = rmax2;
+    _rsm2 = rsm2;
+    _step = 0;
+    
+    float dx = cm_size;
+
+    // Buffer the original domain slightly without shifting it.
+    float x_min = min_pos - dx;
+    float x_max = max_pos + dx;
+    
+    // Min and max positions must be buffered slightly to avoid cell centers that
+    // are out of domain bounds.
+    std::array<float, 3> grid_min = {x_min, x_min, x_min};
+    std::array<float, 3> grid_max = {x_max, x_max, x_max};
+
+    // FMM parameters
+    _solver = Canopy::createSolver<memory_space, execution_space, MD, 2, num_coefficients>
+        (grid_min, grid_max, leaf_tiles, reduction_factor, MPI_COMM_WORLD);
+  }
+
+  void updateVel(std::shared_ptr<AoSoAType> aosoa_device)
+  {
+    // Canopy interprets positive scalars with the opposite sign convention
+    // from HACCabana's gravitational force. Normalize force and potential
+    // here so the rest of HACCabana always sees attractive gravity.
+    _solver->solve(aosoa_device, false);
+
+    auto force = Cabana::slice<Field::Force>( *aosoa_device, "force" );
+    auto potential =
+        Cabana::slice<Field::Potential>( *aosoa_device, "potential" );
+
+    Kokkos::parallel_for(
+        "convert_canopy_gravity_convention",
+        Kokkos::RangePolicy<execution_space>( 0, aosoa_device->size() ),
+        KOKKOS_LAMBDA( const int i )
+        {
+          force( i, 0 ) = -force( i, 0 );
+          force( i, 1 ) = -force( i, 1 );
+          force( i, 2 ) = -force( i, 2 );
+          potential( i ) = -potential( i );
+        } );
+
+    Kokkos::fence();
+
+    // Update velocity
+    auto velocity = Cabana::slice<Field::Velocity>( *aosoa_device, "velocity" );
+
+    auto c = _c;
+    auto vector_kick = KOKKOS_LAMBDA(const int s, const int a)
+    {
+        velocity.access(s,a,0) += force.access(s,a,0) * c;
+        velocity.access(s,a,1) += force.access(s,a,1) * c;
+        velocity.access(s,a,2) += force.access(s,a,2) * c;
+    };
+
+    Cabana::SimdPolicy<VECTOR_LENGTH, execution_space> simd_policy(0, aosoa_device->size());
+    Cabana::simd_parallel_for( simd_policy, vector_kick, "kick" );
+
+    Kokkos::fence();
+
+    _step++;
+  }
+};
+
+#endif // CANOPY_FORCE_SOLVER_H

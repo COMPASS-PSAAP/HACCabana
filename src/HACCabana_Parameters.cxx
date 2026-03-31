@@ -1,6 +1,6 @@
 #include <fstream>
 #include <sstream> 
-#include "Parameters.h"
+#include "HACCabana_Parameters.h"
 
 namespace HACCabana
 {
