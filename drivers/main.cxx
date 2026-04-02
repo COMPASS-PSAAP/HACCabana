@@ -58,6 +58,7 @@ int main( int argc, char* argv[] )
   int timestep_flag = 0;        // timstep to advance to (required)
   int config_flag = 0;          // configuration file (optional)
   int print_positions_flag = 0; // print final particle positions (optional)
+  int weak_scaling_flag = 0;    // weak scaling synthetic data (FMM only)
   int leaf_tiles_flag = 0;      // Canopy leaf tiles (FMM only)
   int reduction_factor_flag = 0; // Canopy reduction factor (FMM only)
   std::size_t num_particles = 0;
@@ -74,11 +75,12 @@ int main( int argc, char* argv[] )
   opterr = 0;
   static struct option long_options[] = {
     {"print-positions", no_argument, nullptr, 'P'},
+    {"weak-scaling", no_argument, nullptr, 'w'},
     {nullptr, 0, nullptr, 0}
   };
   int option_index = 0;
 
-  while ((c = getopt_long(argc, argv, "i:v:dt:c:p:s:f:Pl:r:", long_options,
+  while ((c = getopt_long(argc, argv, "i:v:dt:c:p:s:f:Pwl:r:", long_options,
                           &option_index)) != -1)
     switch (c)
     {
@@ -113,6 +115,9 @@ int main( int argc, char* argv[] )
         break;
       case 'P':
         print_positions_flag = 1;
+        break;
+      case 'w':
+        weak_scaling_flag = 1;
         break;
       case 'l':
         leaf_tiles_flag = 1;
@@ -160,6 +165,11 @@ int main( int argc, char* argv[] )
   if (reduction_factor <= 0)
     throw std::runtime_error("Option '-r' requires a positive integer.");
 
+  if (weak_scaling_flag &&
+      force_solver != HACCabana::force_solver_type::fmm)
+    throw std::runtime_error(
+        "Option '-w' requires the FMM solver. Use '-f fmm'." );
+
   if ((leaf_tiles_flag || reduction_factor_flag) &&
       force_solver != HACCabana::force_solver_type::fmm)
     throw std::runtime_error(
@@ -178,7 +188,8 @@ int main( int argc, char* argv[] )
     solver->setReductionFactor(reduction_factor);
   solver->setup(config_flag, configuration_filename, num_particles, num_substeps);
   solver->advance();
-  solver->setupParticles(input_flag, input_filename);
+  solver->setupParticles(input_flag, input_filename, weak_scaling_flag,
+                         num_particles);
   solver->subCycle();
 
   if (print_positions_flag)

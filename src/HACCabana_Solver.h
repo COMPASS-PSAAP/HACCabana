@@ -91,7 +91,9 @@ class Solver
         _timestepper->advanceHalfStep();
     }
 
-    void setupParticles(const int input_flag, const std::string& input_filename)
+    void setupParticles(const int input_flag, const std::string& input_filename,
+                        const bool weak_scaling = false,
+                        const std::size_t weak_scaling_num_particles = 0)
     {
         const float min_alive_pos = _parameters.oL;
         const float max_alive_pos = _parameters.rL+_parameters.oL;
@@ -104,7 +106,9 @@ class Solver
         {
             std::cout << "Generating synthetic data in range [" << min_alive_pos << "," << max_alive_pos << "] " 
                 << "rL=" << _parameters.rL << " oL=" << _parameters.oL << std::endl;
-            _particles.generateData(_parameters.np, _parameters.rL, _parameters.oL, MEAN_VEL);
+            _particles.generateData(_parameters.np, _parameters.rL, _parameters.oL,
+                                    MEAN_VEL, weak_scaling,
+                                    weak_scaling_num_particles);
             _particles.convert_phys2grid(_parameters.ng, _parameters.rL, _timestepper->aa());
         }
 

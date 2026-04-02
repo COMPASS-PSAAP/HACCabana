@@ -1,7 +1,10 @@
 #ifndef PARTICLES_H
 #define PARTICLES_H
 
+#include <algorithm>
+#include <cmath>
 #include <fstream>
+#include <random>
 #include <string>
 
 #include <Cabana_Core.hpp>
@@ -53,44 +56,67 @@ public:
         }
     }
 
-    void generateData(const int np, const float rl, const float ol, const float mean_vel)
+    void generateData(const int np, const float rl, const float ol,
+                      const float mean_vel, const bool weak_scaling = false,
+                      const std::size_t weak_scaling_num_particles = 0)
     {
         int rank;
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-        // Only rank 0 generate data
-        int num_p = 0;
+        const std::size_t default_num_particles =
+            static_cast<std::size_t>(np) * np * np;
+        const std::size_t num_p =
+            weak_scaling
+                ? (weak_scaling_num_particles > 0 ? weak_scaling_num_particles
+                                                  : default_num_particles)
+                : (rank == 0 ? default_num_particles : 0);
         aosoa_host = aosoa_host_type("aosoa_host", num_p);
-        if (rank == 0)
-        {
-        num_p = np*np*np;
-        aosoa_host.resize(num_p);
+        if (num_p == 0)
+            return;
 
         auto id = Cabana::slice<Field::ParticleID>(aosoa_host, "id");
         auto position = Cabana::slice<Field::Position>(aosoa_host, "position");
 
-        const float delta = rl/np;  // inter-particle spacing
+        const int grid_particles_per_dim =
+            (weak_scaling && weak_scaling_num_particles > 0)
+                ? std::max(1, static_cast<int>(std::ceil(
+                      std::cbrt(static_cast<double>(weak_scaling_num_particles)))))
+                : np;
+        const float delta = rl/grid_particles_per_dim;  // inter-particle spacing
 
         // generate data from a grid and offset from a normal random distribution
         // std::random_device rd{};
-        std::mt19937 gen{12345};
+        std::mt19937 gen{static_cast<std::mt19937::result_type>(rank)};
         std::normal_distribution<float> d1{0.0, 0.05}; // mu=0.0 sigma=0.05
 
         float min_pos[3];
         float max_pos[3];
 
-        for (int i=0; i<num_p; ++i)
+        const int64_t particle_id_offset =
+            weak_scaling ? static_cast<int64_t>(rank) *
+                               static_cast<int64_t>(num_p)
+                         : 0;
+
+        for (std::size_t i = 0; i < num_p; ++i)
         {
-            id(i) = i;
-            position(i,0) = (float)(i % np) * delta + delta*0.5 + d1(gen) + ol;
+            id(i) = particle_id_offset + static_cast<int64_t>(i);
+            position(i,0) =
+                static_cast<float>(i % grid_particles_per_dim) * delta +
+                delta*0.5 + d1(gen) + ol;
             min_pos[0] = i==0 ? position(i,0) : min_pos[0] > position(i,0) ? position(i,0) : min_pos[0]; 
             max_pos[0] = i==0 ? position(i,0) : max_pos[0] < position(i,0) ? position(i,0) : max_pos[0]; 
 
-            position(i,1) = (float)(i / np % np) * delta + delta*0.5 + d1(gen) + ol;
+            position(i,1) =
+                static_cast<float>((i / grid_particles_per_dim) %
+                                   grid_particles_per_dim) *
+                delta + delta*0.5 + d1(gen) + ol;
             min_pos[1] = i==0 ? position(i,1) : min_pos[1] > position(i,1) ? position(i,1) : min_pos[1]; 
             max_pos[1] = i==0 ? position(i,1) : max_pos[1] < position(i,1) ? position(i,1) : max_pos[1]; 
 
-            position(i,2) = (float)(i/(np*np)) * delta + delta*0.5 + d1(gen) + ol;
+            position(i,2) =
+                static_cast<float>(
+                    i/(grid_particles_per_dim*grid_particles_per_dim)) *
+                delta + delta*0.5 + d1(gen) + ol;
             min_pos[2] = i==0 ? position(i,2) : min_pos[2] > position(i,2) ? position(i,2) : min_pos[2];
             max_pos[2] = i==0 ? position(i,2) : max_pos[2] < position(i,2) ? position(i,2) : max_pos[2];
         }
@@ -104,7 +130,7 @@ public:
         auto potential = Cabana::slice<Field::Potential>(aosoa_host, "potential");
         auto bin_index = Cabana::slice<Field::BinIndex>(aosoa_host, "bin_index");
 
-        for (int i=0; i<num_p; ++i)
+        for (std::size_t i = 0; i < num_p; ++i)
         {
             for (int j=0; j<3; ++j) {
             velocity(i,j) = vel_1d * d2(gen);
@@ -119,7 +145,6 @@ public:
         std::cout << "\t" << num_p << " particles\n" <<
             "\tmin[" << min_pos[0] << "," << min_pos[1] << "," << min_pos[2] << 
             "] max["<< max_pos[0] << "," << max_pos[1] << "," << max_pos[2] << "]" << std::endl;
-        }
     }
 
     void readRawData(std::string file_name) 

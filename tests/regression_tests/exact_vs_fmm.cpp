@@ -96,12 +96,13 @@ std::shared_ptr<aosoa_type> copyToDevice( const aosoa_host_type& particles_h,
 void expectParticlesSpanDomain( const aosoa_host_type& particles_h )
 {
   auto position = Cabana::slice<Field::Position>( particles_h, "position" );
+  const CanopyForceSolver<aosoa_type, Field> solver;
 
   const float grid_min = min_pos - cm_size;
   const float grid_max = max_pos + cm_size;
   const float cell_size =
       ( grid_max - grid_min ) /
-      ( CanopyForceSolver<aosoa_type, Field>::leaf_tiles * 2.0f );
+      ( solver.leaf_tiles * 2.0f );
 
   for ( int d = 0; d < 3; ++d )
   {
@@ -278,6 +279,48 @@ TEST( Particles, ReorderDropsOutOfBoundsParticlesAndPreservesFields )
     EXPECT_FLOAT_EQ( kept_gravity( i ), 10.0f + original_index );
     EXPECT_FLOAT_EQ( kept_potential( i ), 20.0f + original_index );
     EXPECT_EQ( kept_bin_index( i ), 30 + original_index );
+  }
+}
+
+TEST( Particles, GenerateDataWeakScalingUsesRequestedParticlesPerRank )
+{
+  constexpr std::size_t requested_particles = 5;
+
+  int rank = 0;
+  MPI_Comm_rank( MPI_COMM_WORLD, &rank );
+
+  particles_type particles;
+  particles.generateData( 2, 1.0f, 0.0f, 0.0f, true, requested_particles );
+
+  ASSERT_EQ( particles.aosoa_host.size(), requested_particles );
+
+  auto particle_id =
+      Cabana::slice<Field::ParticleID>( particles.aosoa_host, "particle_id" );
+  auto velocity =
+      Cabana::slice<Field::Velocity>( particles.aosoa_host, "velocity" );
+  auto force = Cabana::slice<Field::Force>( particles.aosoa_host, "force" );
+  auto gravity =
+      Cabana::slice<Field::Gravity>( particles.aosoa_host, "gravity" );
+  auto potential =
+      Cabana::slice<Field::Potential>( particles.aosoa_host, "potential" );
+  auto bin_index =
+      Cabana::slice<Field::BinIndex>( particles.aosoa_host, "bin_index" );
+
+  for ( std::size_t i = 0; i < requested_particles; ++i )
+  {
+    EXPECT_EQ( particle_id( i ),
+               static_cast<int64_t>( rank ) *
+                       static_cast<int64_t>( requested_particles ) +
+                   static_cast<int64_t>( i ) );
+    EXPECT_FLOAT_EQ( gravity( i ), 1.0f );
+    EXPECT_FLOAT_EQ( potential( i ), 0.0f );
+    EXPECT_EQ( bin_index( i ), 0 );
+
+    for ( int d = 0; d < 3; ++d )
+    {
+      EXPECT_FLOAT_EQ( velocity( i, d ), 0.0f );
+      EXPECT_FLOAT_EQ( force( i, d ), 0.0f );
+    }
   }
 }
 
