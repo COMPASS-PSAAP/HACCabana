@@ -48,7 +48,7 @@ class P3MForceSolver
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     if (rank == 0)
-      printf("Starting FMM solve...\n");
+      printf("Starting P3M solve...\n");
       
     _c = c;
     _rmax2 = rmax2;
