@@ -11,22 +11,23 @@ template <class AoSoAType, class Field>
 class CanopyForceSolver
 {
   public:
-  static constexpr int num_coefficients = 6;
-  static constexpr int leaf_tiles = 16;
-  static constexpr int reduction_factor = 2;
+  static constexpr int P_ORDER = 10;
 
   private:
   // Variables needed for Canopy
   using memory_space = typename AoSoAType::memory_space;
   using execution_space = typename AoSoAType::execution_space;
-  using MD = Canopy::ParticleMetadata<AoSoAType, float, Field::Position, Field::Gravity, Field::Potential, Field::Force>; 
-  std::shared_ptr<Canopy::Solver<memory_space, execution_space, MD,
-                                 2, num_coefficients>> _solver;
+  using Solver_t =
+        Solver<memory_space, execution_space, float, P_ORDER, /*NComps=*/1>;
+  std::shared_ptr<Solver_t> _solver;
   
   float _c;
   float _rmax2;
   float _rsm2;
   int _step;
+
+  // Setup flag
+  bool _is_setup;
   
   public:
   CanopyForceSolver() {}
@@ -53,6 +54,9 @@ class CanopyForceSolver
     // Buffer the original domain slightly without shifting it.
     float x_min = min_pos - dx;
     float x_max = max_pos + dx;
+
+    // Tolerance on domain bounds
+    std::array<double, 3> bb_tol = {0.05, 0.05, 0.05};
     
     // Min and max positions must be buffered slightly to avoid cell centers that
     // are out of domain bounds.
@@ -60,20 +64,65 @@ class CanopyForceSolver
     std::array<float, 3> grid_max = {x_max, x_max, x_max};
 
     // FMM parameters
-    _solver = Canopy::createSolver<memory_space, execution_space, MD, 2, num_coefficients>
-        (grid_min, grid_max, leaf_tiles, reduction_factor, MPI_COMM_WORLD);
+    int ncrit = 32;
+    double ncrit_tol = 0.15
+    int max_dept = 15;
+    int replication_depth = 3;
+
+    _solver = Canopy::createSolver<memory_space, execution_space, float, P_ORDER, 1>
+        (MPI_COMM_WORLD, ncrit, max_depth,
+        bb_tol,
+        ncrit_tol, replication_depth);
+
+    _is_setup = false;
   }
 
   void updateVel(std::shared_ptr<AoSoAType> aosoa_device)
   {
+    // First time we get particles we must setup solver
+    if (!_is_setup)
+    {
+      solver->setup<Position, Charge>( aosoa_device, aosoa_device.size() );
+      _is_setup = true;
+    }
     // Canopy interprets positive scalars with the opposite sign convention
     // from HACCabana's gravitational force. Normalize force and potential
     // here so the rest of HACCabana always sees attractive gravity.
     _solver->solve(aosoa_device, false);
 
-    auto force = Cabana::slice<Field::Force>( *aosoa_device, "force" );
-    auto potential =
-        Cabana::slice<Field::Potential>( *aosoa_device, "potential" );
+    // FMM solve for current state
+    solver.template solve<Field::Position, Field::Charge>( aosoa_device,
+                                              /*compute_gradient=*/true );
+
+    // Update local positions and velocities from gradient.
+    // Symplectic Euler: v += dt*g;  r += dt * drift * v.
+    // Run on device so we write directly into the AoSoA slices.
+    const int n_local = solver.num_local_particles();
+    auto positions = Cabana::slice<Field::Position>( aosoa_device );
+    auto velocities = Cabana::slice<Field::Velocity>( aosoa_device );
+    auto grad = solver.gradient();
+    const double dt_local = dt;
+    const double drift_local = drift_multiplier;
+    Kokkos::parallel_for(
+        "MultiSolve::integrate",
+        Kokkos::RangePolicy<TEST_EXECSPACE>( 0, n_local ),
+        KOKKOS_LAMBDA( int i ) {
+            const double gx = grad( i, 0, 0 );
+            const double gy = grad( i, 0, 1 );
+            const double gz = grad( i, 0, 2 );
+            velocities( i, 0 ) += dt_local * gx;
+            velocities( i, 1 ) += dt_local * gy;
+            velocities( i, 2 ) += dt_local * gz;
+            positions( i, 0 ) +=
+                dt_local * drift_local * velocities( i, 0 );
+            positions( i, 1 ) +=
+                dt_local * drift_local * velocities( i, 1 );
+            positions( i, 2 ) +=
+                dt_local * drift_local * velocities( i, 2 );
+        } );
+    Kokkos::fence();
+
+    auto grad = Cabana::slice<Field::Force>( *aosoa_device, "force" );
 
     Kokkos::parallel_for(
         "convert_canopy_gravity_convention",
